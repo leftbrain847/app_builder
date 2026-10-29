@@ -13,7 +13,8 @@ interface Seat {
   rate: RateState;
 }
 
-export type MessageVerdict = { kind: 'ok' } | { kind: 'drop'; code: ErrorCode } | { kind: 'close'; code: ErrorCode };
+/** `changed`: whether the input altered the app's state. Turn-based rooms save and broadcast only then. */
+export type MessageVerdict = { kind: 'ok'; changed: boolean } | { kind: 'drop'; code: ErrorCode } | { kind: 'close'; code: ErrorCode };
 
 export interface Outgoing {
   player: PlayerId;
@@ -133,15 +134,20 @@ export class RoomCore {
     if (typeof msg !== 'object' || msg === null || Array.isArray(msg)) return { kind: 'drop', code: 'bad_message' };
     const env = msg as Record<string, unknown>;
     if (Object.keys(env).some((k) => k !== 't' && k !== 's' && k !== 'd') || typeof env.s !== 'number') return { kind: 'drop', code: 'bad_message' };
-    if (env.t === 'ping') return { kind: 'ok' };
-    if (env.t !== 'input') return { kind: 'drop', code: 'bad_message' };
+    if (env.t !== 'input' && env.t !== 'ping') return { kind: 'drop', code: 'bad_message' };
+    // Pings count against the same per-player limit as inputs, so they can't be used to flood.
     const verdict = admit(seat.rate, this.rateLimit(), nowMs);
     if (verdict === 'abuse') return { kind: 'close', code: 'rate_limited' };
     if (verdict === 'drop') return { kind: 'drop', code: 'rate_limited' };
+    if (env.t === 'ping') return { kind: 'ok', changed: false };
     const input = this.game.parseInput(env.d);
     if (input === null) return { kind: 'drop', code: 'bad_message' };
-    if (this.started && !this.over) this.game.onInput(this.state, player, input, nowMs);
-    return { kind: 'ok' };
+    if (!this.started || this.over) return { kind: 'ok', changed: false };
+    // Turn-based rooms persist after each move, so they need to know whether the move did anything
+    // (a move out of turn is ignored by the app and must not cost a storage write or a broadcast).
+    const before = this.turnBased ? JSON.stringify(this.state) : null;
+    this.game.onInput(this.state, player, input, nowMs);
+    return { kind: 'ok', changed: before === null || JSON.stringify(this.state) !== before };
   }
 
   /** Each connected player's own view (or the final one), now. */
@@ -176,6 +182,11 @@ export class RoomCore {
     core.over = snap.over;
     core.ticks = snap.ticks;
     return core;
+  }
+
+  /** After restore and re-attach: seats with no surviving socket start their grace period now, so ghost seats get freed. */
+  markDetached(nowMs: number): void {
+    for (const seat of this.seats.values()) if (seat.connected === 0 && seat.leftAtMs === null) seat.leftAtMs = nowMs;
   }
 
   /** A socket that survived hibernation is attached again. */

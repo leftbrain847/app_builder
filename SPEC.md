@@ -36,7 +36,7 @@ Read all of this before changing the platform or an app's platform-facing parts.
 | One Access login covering every `/<id>/` path | **Not yet verified live** *(verify with two apps before scaling)* |
 | Template: solo and turn samples, tests, builds | Built; CI generates both and runs their checks |
 | `create-app`, `sync`, `platform-config` scripts | Built; exercised by CI |
-| App CI: test, deploy, smoke, auto-rollback | Written; **not yet run against a live deploy** |
+| App CI: test, deploy, smoke, auto-rollback | Written. The smoke test is checked locally against a fake walled server (passes) and a fake open one (fails). **Not yet run against a live deploy** |
 | Android build + Play internal-track upload | Written; **untested** (Capacitor 8.5.3, `r0adkll/upload-google-play@v1`) *(verify)* |
 | Protocol version handshake (old cached clients vs a new server) | **Not built** |
 | Usage meter across Workers | Built as one shared object; tallies are per isolate and approximate |
@@ -124,7 +124,7 @@ The platform Worker owns `/`, `/index.html` and `/api/platform/*`. More specific
     - If the host can't be reached, the run continues unranked.
     - Cost: about 2 requests per segment.
 2. **`turn`** (`tickHz: 0`). Server-authoritative, with no `setInterval` or `setTimeout`, so the room can hibernate between moves and bill no run time *(verify: timers and alarms prevent hibernation)*.
-    - After each accepted move the room saves a snapshot and sends every connected player their own view.
+    - After each move that changes the state, the room saves a snapshot and sends every connected player their own view. Ignored moves (out of turn) and pings cost no write and no broadcast, and pings count against the rate limit.
     - On wake it restores the snapshot and re-attaches the surviving sockets.
     - Cost: 1 request to join, plus 1 per 20 moves.
 3. **`room`** (`tickHz > 0`, real-time). Server-authoritative fixed-step loop while anyone is connected.
@@ -192,7 +192,7 @@ Friends only, via the browser link. A home-screen shortcut keeps its own cookies
 ### 8. Adding an app
 
 1. J creates an empty GitHub repo for it.
-2. In a session with that repo and app_builder attached: `node scripts/create-app.mjs <id> --mode solo|turn --title "<Title>" --out <path to the app repo clone>`.
+2. In a session with that repo and app_builder attached: `node scripts/create-app.mjs <id> --mode solo|turn --title "<Title>" --out <path to the app repo clone>`. Then `npm install` there and commit `package-lock.json` too: CI uses `npm ci`.
 3. Write the rules in `src/app.ts`, the UI in `src/client/main.ts` and tests in `test/`, keeping the sample's shape.
 4. Add `{ "id": "<id>", "title": "<Title>" }` to `app_builder/apps.json` and push app_builder. CI redeploys the platform Worker, so the app shows on the index page.
 5. J adds the `CLOUDFLARE_API_TOKEN` secret to the app repo. Push `main`: CI tests, deploys and smoke-tests it.

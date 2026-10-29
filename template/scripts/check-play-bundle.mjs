@@ -5,14 +5,15 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DIR = 'dist/play';
-const FORBIDDEN = ['/api/', 'new WebSocket', 'WebSocket(', 'fetch(', 'XMLHttpRequest', 'navigator.sendBeacon', 'EventSource('];
+// A tripwire, not a proof: plain substrings, so keep the client free of these words even in comments.
+const FORBIDDEN = ['/api/', 'WebSocket', 'fetch(', 'XMLHttpRequest', 'sendBeacon', 'EventSource', 'import("http', 'http://', 'https://'];
 
 const files = [];
 const walk = (d) => {
   for (const name of readdirSync(d)) {
     const p = join(d, name);
     if (statSync(p).isDirectory()) walk(p);
-    else if (/\.(js|mjs|html)$/.test(name)) files.push(p);
+    else if (/\.(js|mjs|html|css|json|webmanifest)$/.test(name)) files.push(p);
   }
 };
 walk(DIR);

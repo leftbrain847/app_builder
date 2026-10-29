@@ -9,11 +9,13 @@ export { SoloRun, Scores } from './solo';
 export { UsageMeter } from './usage';
 
 /** Per isolate: usage tallied in memory and flushed in batches, plus the last usage report seen. */
-const tally = new UsageTally(hostConfig().usageFlushMs);
+// Created on the first request, after register() has applied the app's host overrides.
+let tally: UsageTally | null = null;
 let lastReport: RouterDeps['lastReport'] = null;
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    tally ??= new UsageTally(hostConfig().usageFlushMs);
     const deps: RouterDeps = {
       fetch: (input, init) => fetch(input, init),
       nowS: () => Math.floor(Date.now() / 1000),

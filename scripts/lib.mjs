@@ -11,8 +11,18 @@ export const ID = /^[a-z][a-z0-9-]{0,39}$/;
 export const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 export const writeJson = (p, v) => writeFileSync(p, JSON.stringify(v, null, 2) + '\n');
 
+const HOSTNAME = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+
+/** The shared settings, checked: they are written into every app's wrangler.toml. */
 export function platformConfig() {
-  return readJson(join(ROOT, 'platform.config.json'));
+  const p = readJson(join(ROOT, 'platform.config.json'));
+  if (!HOSTNAME.test(p.appsHost ?? '')) throw new Error(`platform.config.json: appsHost must be a hostname like apps.example.com, got ${JSON.stringify(p.appsHost)}`);
+  if (!HOSTNAME.test(p.zone ?? '')) throw new Error(`platform.config.json: zone must be a domain like example.com, got ${JSON.stringify(p.zone)}`);
+  if (!p.appsHost.endsWith(p.zone)) throw new Error('platform.config.json: appsHost must be inside zone');
+  if (!/^[a-z][a-z0-9-]{0,62}$/.test(p.platformWorker ?? '')) throw new Error('platform.config.json: platformWorker must be a Worker name');
+  if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/.test(p.playPackagePrefix ?? '')) throw new Error('platform.config.json: playPackagePrefix must look like com.example.apps');
+  if (!Array.isArray(p.allowedEmails) || p.allowedEmails.some((e) => typeof e !== 'string' || !/^[^\s@,"]+@[^\s@,"]+$/.test(e))) throw new Error('platform.config.json: allowedEmails must be a list of email addresses');
+  return p;
 }
 
 /** Which app_builder commit a sync came from. */

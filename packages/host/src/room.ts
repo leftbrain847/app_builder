@@ -61,6 +61,7 @@ export class GameRoom implements DurableObject {
       const p = this.playerOf(ws);
       if (p) core.reattach(p);
     }
+    if (snap) core.markDetached(Date.now());
     this.core = core;
     return core;
   }
@@ -113,7 +114,7 @@ export class GameRoom implements DurableObject {
     const verdict = core.message(player, message, Date.now());
     if (verdict.kind === 'drop') ws.send(JSON.stringify(core.error(verdict.code)));
     if (verdict.kind === 'close') ws.close(1008, verdict.code);
-    if (verdict.kind === 'ok' && core.turnBased && core.started) {
+    if (verdict.kind === 'ok' && verdict.changed && core.turnBased && core.started) {
       await this.save(core);
       this.send(core.settle());
       this.flushUsage(false);

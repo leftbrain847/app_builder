@@ -25,7 +25,8 @@ const fail = (msg) => {
 };
 if (!id || !ID.test(id)) fail(`give an id like "settlers" (lowercase letters, digits, hyphens; must match ${ID})`);
 if (!MODES.includes(mode)) fail(`--mode must be one of: ${MODES.join(', ')}`);
-if (/[<>"]/.test(title)) fail('the title cannot contain < > or "');
+// The title is written into JSON, TOML, HTML and YAML files: keep it to plain characters.
+if (!/^[\p{L}\p{N} .,:!?'()-]{1,60}$/u.test(title)) fail('the title may use letters, digits, spaces and . , : ! ? \' ( ) - (up to 60 characters)');
 if (exists(out) && readdirSync(out).some((n) => n !== '.git' && n !== 'README.md' && n !== '.gitignore')) fail(`${out} is not empty`);
 
 const p = platformConfig();

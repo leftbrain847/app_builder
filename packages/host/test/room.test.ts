@@ -60,7 +60,7 @@ describe('room', () => {
     r.join('a@x', 0);
     r.join('b@x', 0);
     expect(r.message('mallory@x', input(3), 0)).toEqual({ kind: 'close', code: 'rejected' });
-    expect(r.message('a@x', input(3), 0)).toEqual({ kind: 'ok' });
+    expect(r.message('a@x', input(3), 0)).toMatchObject({ kind: 'ok' });
     const views = Object.fromEntries(Array.from({ length: 2 }, () => r.tick()).flat().map((o) => [o.player, o.msg.d]));
     expect((views['a@x'] as { mine: number }).mine).toBe((3 % 10) + 3);
     expect((views['b@x'] as { mine: number }).mine).toBe((3 + 7) % 10);
@@ -82,7 +82,7 @@ describe('room', () => {
     r.join('b@x', 0);
     const bad = ['x'.repeat(200), 'not json', '[]', '{"t":"input"}', '{"t":"input","s":1,"d":{"add":3},"x":1}', '{"t":"admin","s":1,"d":null}', input(99), input('3'), new ArrayBuffer(4)];
     for (const m of bad) expect(r.message('a@x', m, 0).kind).toBe('drop');
-    expect(r.message('a@x', JSON.stringify({ t: 'ping', s: 1, d: null }), 0)).toEqual({ kind: 'ok' });
+    expect(r.message('a@x', JSON.stringify({ t: 'ping', s: 1, d: null }), 0)).toMatchObject({ kind: 'ok' });
   });
 
   it('rate-limits inputs per player, and closes a socket that keeps flooding', () => {
@@ -136,7 +136,7 @@ describe('turn-based room (tickHz: 0)', () => {
     r.join('a@x', 0);
     r.join('b@x', 0);
     expect(r.tick()).toEqual([]);
-    expect(r.message('a@x', move(3), 0)).toEqual({ kind: 'ok' });
+    expect(r.message('a@x', move(3), 0)).toMatchObject({ kind: 'ok' });
     const views = Object.fromEntries(r.settle().map((o) => [o.player, o.msg.d]));
     expect(views).toEqual({ 'a@x': { yourTurn: false, total: 3, mine: 3 }, 'b@x': { yourTurn: true, total: 3, mine: 0 } });
   });
@@ -159,7 +159,7 @@ describe('turn-based room (tickHz: 0)', () => {
     expect(back.connectedPlayers).toBe(0);
     back.reattach('a@x');
     back.reattach('b@x');
-    expect(back.message('b@x', move(3), 1000)).toEqual({ kind: 'ok' });
+    expect(back.message('b@x', move(3), 1000)).toMatchObject({ kind: 'ok' });
     expect(back.settle().map((o) => (o.msg.d as { total: number }).total)).toEqual([5, 5]);
     expect(back.join('c@x', 2000)).toEqual({ ok: false, code: 'room_full' });
   });
@@ -172,5 +172,28 @@ describe('turn-based room (tickHz: 0)', () => {
     const out = r.settle();
     expect(r.isOver).toBe(true);
     expect(out.map((o) => o.msg.t)).toEqual(['over', 'over']);
+  });
+
+  it('pings and ignored moves cost nothing: no save, no broadcast, and pings are rate-limited', () => {
+    const r = race();
+    r.join('a@x', 0);
+    r.join('b@x', 0);
+    const ping = JSON.stringify({ t: 'ping', s: 1, d: null });
+    expect(r.message('a@x', ping, 0)).toEqual({ kind: 'ok', changed: false });
+    expect(r.message('b@x', move(1), 0)).toEqual({ kind: 'ok', changed: false });
+    expect(r.message('a@x', move(1), 0)).toEqual({ kind: 'ok', changed: true });
+    let last = 'ok';
+    for (let i = 0; i < 1000 && last !== 'close'; i++) last = r.message('a@x', ping, 1000 + i).kind;
+    expect(last).toBe('close');
+  });
+
+  it('frees ghost seats after a restore: a player who left before the start loses the seat after the grace period', () => {
+    const r = new RoomCore({ ...raceApp, limits: { ...raceApp.limits, minPlayers: 3, maxPlayers: 3 } } as unknown as Any, HOST_CONFIG, 5);
+    r.join('a@x', 0);
+    r.join('b@x', 0);
+    const back = RoomCore.restore(raceApp as unknown as Any, { ...HOST_CONFIG }, 5, structuredClone(r.snapshot()));
+    back.reattach('a@x');
+    back.markDetached(10_000);
+    expect(back.join('c@x', 10_000 + HOST_CONFIG.seatGraceMs + 1).ok).toBe(true);
   });
 });

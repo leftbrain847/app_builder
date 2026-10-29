@@ -83,8 +83,9 @@ export async function route(request: Request, env: Env, deps: RouterDeps): Promi
   // Each app is its own Worker on its own path of the shared hostname (`/<id>/…`).
   const base = site().basePath;
   let path = url.pathname;
+  if (path.includes('//')) return deny(404);
   if (base) {
-    if (path === base) return secured(Response.redirect(`${url.origin}${base}/`, 308));
+    if (path === base) return secured(Response.redirect(`${url.origin}${base}/${url.search}`, 308));
     if (!path.startsWith(`${base}/`)) return deny(404);
     path = path.slice(base.length);
   }
@@ -92,8 +93,19 @@ export async function route(request: Request, env: Env, deps: RouterDeps): Promi
   if (parts[0] !== 'api') {
     if (request.method !== 'GET' && request.method !== 'HEAD') return deny(405);
     // The built client sits at the root of the assets folder; serve it as if the base path weren't there.
-    const assetUrl = new URL(path + url.search, url.origin);
-    return secured(await env.ASSETS.fetch(new Request(assetUrl, request)));
+    const assetUrl = new URL(url.origin);
+    assetUrl.pathname = path;
+    assetUrl.search = url.search;
+    const res = await env.ASSETS.fetch(new Request(assetUrl, request));
+    // Static assets redirect directory-style paths (e.g. /index.html → /); put the base path back
+    // so the browser stays in this app instead of landing on the platform index.
+    const location = res.headers.get('Location');
+    if (base && res.status >= 300 && res.status < 400 && location?.startsWith('/') && !location.startsWith('//')) {
+      const out = new Response(res.body, res);
+      out.headers.set('Location', `${base}${location}`);
+      return secured(out);
+    }
+    return secured(res);
   }
 
   const [, area, a, b, c] = parts;

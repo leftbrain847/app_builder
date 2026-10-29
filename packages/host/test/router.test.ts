@@ -132,4 +132,17 @@ describe('router', () => {
     expect((await call('/other/', {}, null)).status).toBe(403);
     register([diceApp as never], { basePath: '' });
   });
+
+  it('keeps redirects, links and odd paths inside the app', async () => {
+    register([diceApp as never]);
+    ctx = fakeEnv({ ASSETS: { fetch: async () => new Response(null, { status: 307, headers: { Location: '/' } }) } as unknown as Fetcher });
+    const res = await call('/dice/index.html');
+    expect(res.status).toBe(307);
+    expect(res.headers.get('Location')).toBe('/dice/');
+    const bare = await call('/dice?room=00000000-0000-4000-8000-000000000000');
+    expect(bare.headers.get('Location')).toBe('https://apps.example.com/dice/?room=00000000-0000-4000-8000-000000000000');
+    expect((await call('/dice//index.html')).status).toBe(404);
+    expect((await call('/dice//api/usage')).status).toBe(404);
+    register([diceApp as never], { basePath: '' });
+  });
 });
