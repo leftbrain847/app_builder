@@ -1,0 +1,59 @@
+# app_builder's own checks: the platform's tests, plus a solo and a turn-based app generated from
+# the template and put through the same checks every real app gets. A platform change that would
+# break new apps fails here, before any app syncs it.
+#
+# The platform Worker deploys from here on main once platform.config.json has real values and the
+# CLOUDFLARE_API_TOKEN secret is set on this repo.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Template still produces working apps
+        run: |
+          for mode in solo turn; do
+            dir="$RUNNER_TEMP/demo-$mode"
+            node scripts/create-app.mjs "demo-$mode" --mode "$mode" --out "$dir"
+            (cd "$dir" && npm install --no-audit --no-fund && npm run typecheck && npm test && npm run build && npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/out-$mode")
+          done
+          (cd "$RUNNER_TEMP/demo-solo" && npm run build:play)
+
+  deploy-platform:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - name: Configured yet?
+        id: gate
+        env:
+          HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        run: |
+          host=$(node -p "require('./platform.config.json').appsHost")
+          if [ "$host" = "apps.example.com" ] || [ "$HAS_TOKEN" != "true" ]; then echo "ready=false" >> "$GITHUB_OUTPUT"; echo "Skipping: fill in platform.config.json and add the CLOUDFLARE_API_TOKEN secret."; else echo "ready=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Deploy the platform Worker
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          npm ci
+          node scripts/platform-config.mjs
+          export CLOUDFLARE_ACCOUNT_ID=$(node -p "require('./platform.config.json').cloudflareAccountId")
+          cd packages/host && npx wrangler deploy -c wrangler.platform.toml

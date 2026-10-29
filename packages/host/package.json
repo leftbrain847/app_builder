@@ -1,0 +1,22 @@
+{
+  "name": "@app-builder/host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./platform": "./src/platform.ts",
+    "./game-module": "./src/gameModule.ts",
+    "./protocol": "./src/protocol.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "deploy:platform": "wrangler deploy -c wrangler.platform.toml"
+  },
+  "devDependencies": {
+    "vitest": "3.2.7",
+    "wrangler": "4.147.0",
+    "@cloudflare/workers-types": "5.20261004.1"
+  }
+}

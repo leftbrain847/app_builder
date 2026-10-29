@@ -1,0 +1,13 @@
+{
+  "$comment": "Everything tunable about this app lives here. create-app fills id, title and mode; the rest has defaults.",
+  "id": "__APP_ID__",
+  "title": "__APP_TITLE__",
+  "mode": "__APP_MODE__",
+  "host": {
+    "emptyRoomTtlMs": 300000
+  },
+  "targets": {
+    "friends": { "enabled": true },
+    "play": { "enabled": false, "versionName": "0.1.0", "multiplayer": false }
+  }
+}
