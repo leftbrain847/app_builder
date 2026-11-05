@@ -112,6 +112,51 @@ describe('turn rooms: invite links, no login', () => {
     expect(h2.closed?.code).toBe(1008);
   });
 
+  it('handing a seat to a newcomer disconnects whoever held it', async () => {
+    const { net, host, friend } = await twoPlayerGame();
+    await friend.send({ t: 'autopilot', on: true });
+    await host.send({ t: 'host', cmd: { c: 'lock', on: false } });
+    const late = net.connect();
+    await late.send({ t: 'join', name: 'Kim', invite: net.invite, token: late.token });
+    const req = host.last('lobby')!.pending![0]!;
+    await host.send({ t: 'host', cmd: { c: 'approve', request: req.id, seat: 'p2' } });
+    expect(late.last('joined')!.seat).toBe('p2');
+    expect(friend.closed?.code).toBe(4000);
+    expect(friend.last('replaced')).toBeTruthy();
+    const before = friend.inbox.length;
+    await host.send({ t: 'action', type: 'add', params: { n: 1 } });
+    expect(friend.inbox.length).toBe(before);
+  });
+
+  it('a socket that never authenticates is dropped after a short wait', async () => {
+    const net = await Net.make(counterGame);
+    await net.host();
+    const idle = net.connect();
+    net.now += HOST_CONFIG.authTimeoutMs;
+    await net.alarm();
+    expect(idle.closed?.code).toBe(1008);
+  });
+
+  it('a room accepts only so many sockets at once', async () => {
+    const net = await Net.make(counterGame);
+    for (let i = 0; i < HOST_CONFIG.maxConnections; i++) expect(net.core.connect(`x${i}`, undefined, net.now)).toBe(true);
+    expect(net.core.connect('one-too-many', undefined, net.now)).toBe(false);
+  });
+
+  it('a bot whose moves keep failing pauses instead of waking the room forever', async () => {
+    const broken = { ...counterGame, create: (s: never, h: never) => {
+      const g = counterGame.create(s, h);
+      return { ...g, bots: { plan: (st: never, seats: string[]) => (g.bots.plan(st, seats) as { player_id: string }[]).map((a) => ({ ...a, n: 99 })), delayMs: () => 500 } };
+    } } as typeof counterGame;
+    const net = await Net.make(broken);
+    const host = await net.host();
+    await host.send({ t: 'host', cmd: { c: 'settings', settings: { target: 10 }, bots: 1 } });
+    await host.send({ t: 'host', cmd: { c: 'start' } });
+    await host.send({ t: 'action', type: 'add', params: { n: 1 } });
+    for (let i = 0; i < HOST_CONFIG.maxBotFailures + 1; i++) await net.alarm();
+    expect(net.core.meta.botAt).toBeNull();
+  });
+
   it('an idle lobby deletes itself', async () => {
     const net = await Net.make(counterGame);
     net.now += HOST_CONFIG.lobbyIdleTtlMs + 2;

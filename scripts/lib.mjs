@@ -24,7 +24,7 @@ export function platformConfig() {
   if (!/^[a-z][a-z0-9-]{0,62}$/.test(p.platformWorker ?? '')) throw new Error('platform.config.json: platformWorker must be a Worker name');
   if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/.test(p.playPackagePrefix ?? '')) throw new Error('platform.config.json: playPackagePrefix must look like com.example.apps');
   if (p.friendsHost !== undefined) {
-    if (!HOSTNAME.test(p.friendsHost) || !(p.friendsHost === p.zone || p.friendsHost.endsWith(`.${p.zone}`))) throw new Error(`platform.config.json: friendsHost must be a hostname inside zone, got ${JSON.stringify(p.friendsHost)}`);
+    if (!HOSTNAME.test(p.friendsHost) || !p.friendsHost.endsWith(`.${p.zone}`)) throw new Error(`platform.config.json: friendsHost must be a subdomain of zone (not the zone itself), got ${JSON.stringify(p.friendsHost)}`);
     // The Access-protected hostname and the open one must never be the same: that would expose every Access app's paths.
     if (p.friendsHost === p.appsHost) throw new Error('platform.config.json: friendsHost must differ from appsHost');
   }
