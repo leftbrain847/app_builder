@@ -26,7 +26,7 @@ jobs:
       - run: npm test
       - name: Template still produces working apps
         run: |
-          for mode in solo turn; do
+          for mode in solo turn invite; do
             dir="$RUNNER_TEMP/demo-$mode"
             node scripts/create-app.mjs "demo-$mode" --mode "$mode" --out "$dir"
             (cd "$dir" && npm install --no-audit --no-fund && npm run typecheck && npm test && npm run build && npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/out-$mode")

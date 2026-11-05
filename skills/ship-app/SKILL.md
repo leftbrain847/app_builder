@@ -14,7 +14,7 @@ The pipeline's real instructions live in the `leftbrain847/app_builder` repo, no
     - If you're in an existing app repo and can't reach app_builder, read that repo's `platform/SPEC.md` and say it may be out of date.
 2. **Work out which job this is.**
     - **New app:** follow SPEC section 8.
-        - Ask J for the app's id, title and mode (`solo` or `turn`) only if the request doesn't make them clear.
+        - Ask J for the app's id, title and mode (`solo`, `turn`, or `invite` for no-login play by link) only if the request doesn't make them clear.
         - J must create the empty GitHub repo; you can't. Ask for its name, attach it with push access, and clone it.
     - **Change an existing app:** work in its repo, following its CLAUDE.md and `platform/SPEC.md`.
     - **Update an app's platform:** follow SPEC section 9. Compare `platform/VERSION.json` with app_builder's current commit and say what changed before syncing.
