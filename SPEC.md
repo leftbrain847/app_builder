@@ -7,6 +7,7 @@ One pipeline builds every app. Each app ships to up to two places from one codeb
 | Target | Who | Where | Login | Cost |
 | --- | --- | --- | --- | --- |
 | **Friends** | Up to 50 friends, on iPhone, Android or PC | `apps.<domain>/<app>/` in the browser | Cloudflare Access email code, once for all apps | ~$10.46/yr domain; $5/mo Workers Paid only if friends outgrow the free pool |
+| **Friends, by link** (`invite` apps) | Anyone you send a link to, approved by you | `play.<domain>/<app>/` in the browser | None: an unguessable invite link, and you let each person in | Same as Friends |
 | **Google Play** | Anyone | Android app, bundled, offline | None | $25 once for the Play account |
 
 - **Play v1 is single-player only.** Online play for strangers needs accounts, moderation and paid hosting; parked until an app earns it.
@@ -34,7 +35,8 @@ Read all of this before changing the platform or an app's platform-facing parts.
 | Platform Worker: shared `UsageMeter` and `Scores`, index page | Built; unit-tested; dry-run deploy passes |
 | Cross-Worker Durable Object bindings (`script_name`) on the free plan | Dry-run accepts them. **Not yet verified on a real deploy** *(verify)* |
 | One Access login covering every `/<id>/` path | **Not yet verified live** *(verify with two apps before scaling)* |
-| Template: solo and turn samples, tests, builds | Built; CI generates both and runs their checks |
+| Invite mode: turn rooms joined by link, no login (host key, signed room links, host approval, bots, turn timers, hidden info, profiles) | Built (lifted from Settlers' own host, where it ran its tests and e2e); unit-tested here. **Not yet deployed live** |
+| Template: solo, turn and invite samples, tests, builds | Built; CI generates all three and runs their checks |
 | `create-app`, `sync`, `platform-config` scripts | Built; exercised by CI |
 | App CI: test, deploy, smoke, auto-rollback | Written. The smoke test is checked locally against a fake walled server (passes) and a fake open one (fails). **Not yet run against a live deploy** |
 | Android build + Play internal-track upload | Written; **untested** (Capacitor 8.5.3, `r0adkll/upload-google-play@v1`) *(verify)* |
@@ -132,6 +134,19 @@ The platform Worker owns `/`, `/index.html` and `/api/platform/*`. More specific
     - Example: 4 players × 20 inputs/s is 4 requests/s, about 7 hours of play a day from the free pool.
     - Send inputs only when they change (`InputOnChange`).
 
+4. **`invite`** (turn-based, no login). For playing with friends who shouldn't need an account. Lives on `friendsHost` (`play.<domain>`), which **must not** be behind Access; the app's own Worker (`platform/host/src/turn/`) is the only gate:
+    - Only the owner creates rooms, with the `HOST_KEY` Wrangler secret (constant-time compare). No key, or one under 32 characters, refuses everything.
+    - A room link is the room id plus an HMAC under the host key, so a forged or guessed id is refused before any Durable Object runs. A WebSocket from another site's page is refused (`Origin`).
+    - Joining needs the 128-bit invite secret, carried in the link's `#fragment` (never sent in a URL or logged), and then the host's approval. Invites expire (`inviteTtlMs`) and can be rotated or locked. Each device keeps a random seat token; the room stores only hashes.
+    - The richer turn contract (`TurnGame`): `parseAction`, `reduce` with events, `viewFor` plus `redactEvents` for hidden information, timers, bot seats with pacing and human↔bot handoff, a turn timer that hands a missing player to a bot, lobby settings parsed and clamped by the game, results recorded to optional profiles.
+    - Timers and bots run on the Durable Object alarm, never `setTimeout`, so the room still hibernates between moves.
+    - Rooms count into the shared `USAGE` meter. Idle lobbies, idle games and finished games delete themselves (`lobbyIdleTtlMs`, `gameIdleTtlMs`, `finishedRoomTtlMs`).
+    - Test a game in a real room in memory with `@app-builder/host/turn/testing` (no Cloudflare needed).
+    - Sockets that don't authenticate within `authTimeoutMs` are dropped; a room takes at most `maxConnections` sockets; handing a seat to a newcomer disconnects whoever held it; a bot whose moves keep failing pauses after `maxBotFailures` turns.
+    - Every Worker request, refusals included, counts into the shared meter.
+    - **Known limits (accepted for now):** the open hostname is reachable by anyone, so a request flood can spend the account's free daily quota (no data exposed, but every app stops until 00:00 UTC). The guard is a Cloudflare rate-limiting rule on `friendsHost` (one-time setup, below). A room link can't be revoked short of closing the room (rotating the invite stops new joins). Anyone holding an invite can fill the 8-slot join queue until the host rotates or locks it. All invite apps share one origin, so their browser storage is shared.
+    - Not supported in invite mode: real-time rooms and solo replay (they assume Access identities).
+
 **Every room, any mode:**
 - Seats bind to the verified email; a reconnect within `seatGraceMs` reclaims the seat.
 - Oversized messages are dropped before parsing.
@@ -222,7 +237,7 @@ Friends only, via the browser link. A home-screen shortcut keeps its own cookies
 
 ### 11. Security rules (non-negotiable)
 
-1. No unauthenticated path reaches app code on the friends host.
+1. No unauthenticated path reaches app code on the friends host. On the invite host, nothing but the static client is reachable without the host key, a signed room link and (to sit down) an approved invite.
 2. Rooms are server-authoritative. Never trust client state, scores or timing.
 3. Each player receives only their own view.
 4. Minimal dependencies. Justify each; prefer platform APIs.
@@ -233,7 +248,8 @@ Friends only, via the browser link. A home-screen shortcut keeps its own cookies
 ### 12. Backlog
 
 - A protocol version handshake.
+- Invite mode: one subdomain per app (separate browser storage), revocable room links (a cap epoch), a per-connection join limit.
 - A public privacy-policy page for Play listings.
 - A real-time (`room`) sample in the template.
 - A live test of hibernation and of the two *(verify)* items in the status table.
-- Migrating Disk Football from RedZone (`solo` with replay) and porting Settlers from Python (`turn`).
+- Migrating Disk Football from RedZone (`solo` with replay). Settlers moves onto `invite` mode (its own host was the source of that mode).

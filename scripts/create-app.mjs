@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Make a new app from the template.
 //
-//   node scripts/create-app.mjs <id> --mode solo|turn [--title "My App"] [--out <dir>]
+//   node scripts/create-app.mjs <id> --mode solo|turn|invite [--title "My App"] [--out <dir>]
 //
 // <dir> defaults to ../<id> and may be an empty clone of the app's GitHub repo
 // (only .git and a README). Writes the app skeleton, then syncs the platform into it.
@@ -39,6 +39,8 @@ mkdirSync(join(out, 'test'), { recursive: true });
 cpSync(join(tpl, 'src', 'samples', `${mode}.ts`), join(out, 'src', 'app.ts'));
 cpSync(join(tpl, 'src', 'samples', `client-${mode}.ts`), join(out, 'src', 'client', 'main.ts'));
 cpSync(join(tpl, 'src', 'samples', `${mode}.test.ts`), join(out, 'test', 'app.test.ts'));
+// Invite apps get their own Worker entry (host key + invite links instead of Access).
+if (mode === 'invite') cpSync(join(tpl, 'src', 'samples', 'worker-invite.ts'), join(out, 'worker', 'index.ts'));
 cpSync(join(tpl, 'gitignore.txt'), join(out, '.gitignore'));
 rmSync(join(out, 'README.md'), { force: true });
 renameSync(join(out, 'APP_README.md'), join(out, 'README.md'));
@@ -51,9 +53,11 @@ const cfg = readJson(join(out, 'app.config.json'));
 cfg.targets.play.enabled = mode === 'solo';
 cfg.targets.play.appId = playId;
 if (mode === 'turn') cfg.host.emptyRoomTtlMs = 7 * 24 * 60 * 60_000;
+// Invite rooms take the turn-room settings (platform/host/src/turn/config.ts) instead.
+if (mode === 'invite') cfg.host = { inviteTtlMs: 24 * 60 * 60_000 };
 writeJson(join(out, 'app.config.json'), cfg);
 
 const { version } = syncInto(out);
 console.log(`Created ${id} (${mode}) in ${out} from app_builder ${version.commit}.
 Next: cd ${out} && npm install && npm test
-Then add "${id}" to app_builder/apps.json and redeploy the platform Worker so it shows on the index page.`);
+${mode === 'invite' ? `Before deploying: wrangler secret put HOST_KEY (32+ random characters), and keep ${p.friendsHost ?? 'friendsHost'} OUT of Cloudflare Access.\n` : ''}Then add "${id}" to app_builder/apps.json and redeploy the platform Worker so it shows on the index page.`);

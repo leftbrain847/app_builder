@@ -7,7 +7,9 @@
     ".": "./src/index.ts",
     "./platform": "./src/platform.ts",
     "./game-module": "./src/gameModule.ts",
-    "./protocol": "./src/protocol.ts"
+    "./protocol": "./src/protocol.ts",
+    "./turn": "./src/turn/index.ts",
+    "./turn/*": "./src/turn/*.ts"
   },
   "scripts": {
     "test": "vitest run",
