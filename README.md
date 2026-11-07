@@ -2,6 +2,22 @@
 
 The pipeline every app is built and shipped with. The full design is in `SPEC.md`; its top section is the short version.
 
+## Run
+
+```sh
+npm ci
+npm run create-app -- <id> --mode solo|turn|invite --out <dir>   # new app repo
+npm run sync -- <app dir>                                        # update an app's platform/ copy
+```
+
+## Test
+
+```sh
+npm run typecheck && npm test
+```
+
+CI also generates a solo, turn and invite app from `template/` and runs their checks.
+
 ## How other repos use this
 
 Nothing is copied by hand, and app repos never reach back here to build:
