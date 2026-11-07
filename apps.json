@@ -2,5 +2,9 @@
   {
     "id": "ludo",
     "title": "Ludo"
+  },
+  {
+    "id": "asl-translator",
+    "title": "ASL Translator"
   }
 ]
