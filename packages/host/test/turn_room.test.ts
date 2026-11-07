@@ -101,6 +101,11 @@ describe('turn rooms: invite links, no login', () => {
     expect(net.core.meta.seats.find((s) => s.id === 'p2')!.bot).toBe('none');
     // ...and every client is told, not just the server's own state
     expect(host.last('lobby')!.seats.find((s) => s.id === 'p2')!.bot).toBe('none');
+    // switching autopilot on and off is shown to everyone too
+    await friend.send({ t: 'autopilot', on: true });
+    expect(host.last('lobby')!.seats.find((s) => s.id === 'p2')!.bot).toBe('self');
+    await friend.send({ t: 'autopilot', on: false });
+    expect(host.last('lobby')!.seats.find((s) => s.id === 'p2')!.bot).toBe('none');
   });
 
   it('oversized and flooding messages are dropped, then the socket is closed', async () => {
