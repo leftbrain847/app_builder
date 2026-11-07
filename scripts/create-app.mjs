@@ -39,6 +39,10 @@ mkdirSync(join(out, 'test'), { recursive: true });
 cpSync(join(tpl, 'src', 'samples', `${mode}.ts`), join(out, 'src', 'app.ts'));
 cpSync(join(tpl, 'src', 'samples', `client-${mode}.ts`), join(out, 'src', 'client', 'main.ts'));
 cpSync(join(tpl, 'src', 'samples', `${mode}.test.ts`), join(out, 'test', 'app.test.ts'));
+// The sprint demo (one page that runs with no server) exists for solo and invite apps. Turn rooms need Access
+// identities, so a turn app has no in-page demo: drop the scaffold rather than ship a build that can't work.
+if (mode === 'turn') rmSync(join(out, 'demo'), { recursive: true, force: true });
+else cpSync(join(tpl, 'src', 'samples', `demo-${mode}.ts`), join(out, 'src', 'client', 'demo.ts'));
 // Invite apps get their own Worker entry (host key + invite links instead of Access).
 if (mode === 'invite') cpSync(join(tpl, 'src', 'samples', 'worker-invite.ts'), join(out, 'worker', 'index.ts'));
 cpSync(join(tpl, 'gitignore.txt'), join(out, '.gitignore'));
@@ -56,6 +60,12 @@ if (mode === 'turn') cfg.host.emptyRoomTtlMs = 7 * 24 * 60 * 60_000;
 // Invite rooms take the turn-room settings (platform/host/src/turn/config.ts) instead.
 if (mode === 'invite') cfg.host = { inviteTtlMs: 24 * 60 * 60_000 };
 writeJson(join(out, 'app.config.json'), cfg);
+if (mode === 'turn') {
+  const pkg = readJson(join(out, 'package.json'));
+  delete pkg.scripts['build:demo'];
+  delete pkg.scripts.snapshot;
+  writeJson(join(out, 'package.json'), pkg);
+}
 
 const { version } = syncInto(out);
 console.log(`Created ${id} (${mode}) in ${out} from app_builder ${version.commit}.
