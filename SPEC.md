@@ -203,7 +203,7 @@ Friends only, via the browser link. A home-screen shortcut keeps its own cookies
 
 **app_builder (`.github/workflows/ci.yml`):**
 - Runs the platform's tests.
-- Generates a solo and a turn app from the template and puts each through install, typecheck, tests, build and a dry-run deploy, plus the Play bundle check.
+- Generates a solo, a turn and an invite app from the template and puts each through install, typecheck, tests, build and a dry-run deploy, plus the Play bundle check. For solo and invite it also builds the sprint demo, which fails on any network code or any file the page would need beside it.
 - Deploys the platform Worker on `main` once `platform.config.json` is filled in and the token secret exists.
 
 **Dev never spends the shared pool.** Use `npm run dev` (UI only), `npm run worker:dev` (`wrangler dev`, local) and vitest. No staging Worker on the production account.
