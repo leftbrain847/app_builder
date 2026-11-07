@@ -208,15 +208,20 @@ Friends only, via the browser link. A home-screen shortcut keeps its own cookies
 
 **Dev never spends the shared pool.** Use `npm run dev` (UI only), `npm run worker:dev` (`wrangler dev`, local) and vitest. No staging Worker on the production account.
 
-### 8. Adding an app
+### 8. Adding an app (one sprint day)
 
-1. J creates an empty GitHub repo for it.
-2. In a session with that repo and app_builder attached: `node scripts/create-app.mjs <id> --mode solo|turn --title "<Title>" --out <path to the app repo clone>`. Then `npm install` there and commit `package-lock.json` too: CI uses `npm ci`.
-3. Write the rules in `src/app.ts`, the UI in `src/client/main.ts` and tests in `test/`, keeping the sample's shape.
-4. Add `{ "id": "<id>", "title": "<Title>" }` to `app_builder/apps.json` and push app_builder. CI redeploys the platform Worker, so the app shows on the index page.
-5. J adds the `CLOUDFLARE_API_TOKEN` secret to the app repo. Push `main`: CI tests, deploys and smoke-tests it.
-6. For Play: tag `v0.1.0`. CI uploads to the internal track; J fills in the listing and runs the closed test.
+A new app is normally one day of J's sprint. **The day ships when its demo page is published and committed**, not when Cloudflare deploys; the live friends link comes later, once the secrets exist.
 
+1. **Setup (J).** Create an empty GitHub repo. Start a session with it, `app_builder` and `index` attached, and type `/ship-app <id>: <what to build>` (or attach a brief).
+2. **Generate.** Pick the mode: `solo` for single-player, `invite` for anything multiplayer (it plays in the demo page against bots), `turn` only if J asks (it needs Access and has no demo). Run `node scripts/create-app.mjs <id> --mode <mode> --title "<Title>" --out <app repo clone>`, then `npm install` there and commit `package-lock.json` (CI uses `npm ci`).
+3. **Build.** Write the rules in `src/app.ts`, the UI in `src/client/` and tests in `test/`, keeping the sample's shape. `npm run typecheck && npm test && npm run build && npm run build:demo` must pass.
+4. **Play-test it like a person.** Open `dist/demo/page.html` at phone width (390 px) in Chromium, play several full turns, and look at the screenshots. Everything a player needs (whose turn it is, what was rolled or drawn, what just moved, the result) must stay on screen long enough to read. Check there's no horizontal overflow at 360 px. Fix what you find before publishing.
+5. **Publish the day's artifact.** Publish `dist/demo/page.html` as a Claude artifact. Its title is already `YYYY-MM-DD - <Title>`, dated in `app.config.json` → `sprint.timeZone`. Republish the same artifact for fixes during the day; once the day is over, it's a frozen record.
+6. **Snapshot and PRs.** Run `npm run snapshot` and commit `snapshots/YYYY-MM-DD - <Title>.html` with the app, then open the app's PR. In a separate app_builder PR, add `{ "id": "<id>", "title": "<Title>" }` to `apps.json`. No index edit is needed: its nightly refresh finds the snapshot on the app's default branch.
+7. **Report.** Give the artifact link, the PRs J has to merge, and the public sprint site (`https://<owner>.github.io/<index.yml config.site.repo>/`). After J merges, the index's nightly refresh (1:47 AM ET) lists the day. It publishes the day on the public site only if the page carries the `sprint-public` tag (`sprint.public` in `app.config.json`) and passes UAT and the secret scan. To publish sooner, J presses Run workflow on index's refresh-index.
+8. **Later: the live friends link.** J adds the `CLOUDFLARE_API_TOKEN` secret to the app repo (invite apps also need `wrangler secret put HOST_KEY`), and the next push to `main` deploys and smoke-tests. For Play, tag `v0.1.0`; CI uploads to the internal track, and J fills in the listing and runs the closed test.
+
+**Shipped, sprint day:** the artifact is published, the app PR holds the snapshot, typecheck, tests, build and `build:demo` pass, and it was play-tested at phone width.
 **Shipped, friends:** a deployed URL, a green smoke test, README budget notes, and at least one rules test.
 **Shipped, Play:** on the internal track with the no-network check green.
 
