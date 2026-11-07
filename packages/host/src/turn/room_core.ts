@@ -187,8 +187,10 @@ export class RoomCore {
     if ((this.meta.phase !== 'playing') || !this.instance) { out.error(conn.id, 'not_playing', 'The game has not started.'); return; }
     const action = this.instance.parseAction(msg.type, msg.params, seat.id); // player_id comes from the seat, never from the client
     if (!action) { out.error(conn.id, 'bad_action', 'That move is not valid.'); return; }
-    if (seat.bot === 'afk' || seat.bot === 'self') this.setBot(seat, 'none');
+    const released = seat.bot === 'afk' || seat.bot === 'self';
+    if (released) this.setBot(seat, 'none');
     const r = this.instance.reduce(this.state, action);
+    if (released) this.broadcastLobby(out);   // everyone's seat list shows the player back, not still on a bot
     if (!r.ok) { out.error(conn.id, 'illegal', r.error); return; }
     this.state = r.state;
     this.meta.botFailures = 0; // the game moved on: paused bots get to try again

@@ -99,6 +99,8 @@ describe('turn rooms: invite links, no login', () => {
     // Any move from the player takes the seat back.
     await friend.send({ t: 'action', type: 'add', params: { n: 1 } });
     expect(net.core.meta.seats.find((s) => s.id === 'p2')!.bot).toBe('none');
+    // ...and every client is told, not just the server's own state
+    expect(host.last('lobby')!.seats.find((s) => s.id === 'p2')!.bot).toBe('none');
   });
 
   it('oversized and flooding messages are dropped, then the socket is closed', async () => {
