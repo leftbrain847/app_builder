@@ -5,7 +5,7 @@
  * reclaims the seat after a reload. The invite secret rides in the link's
  * #fragment, which browsers never send to the server.
  */
-import { WsTransport, type RoomInfo, type Snapshot } from '@app-builder/client-sdk/turn';
+import { WsTransport, type RoomInfo, type Snapshot, type WsOptions } from '@app-builder/client-sdk/turn';
 import config from '../../app.config.json';
 import { el, render } from './ui';
 
@@ -50,13 +50,24 @@ async function create(hostKey: string, name: string): Promise<void> {
   play(r.cap, null, r.invite);
 }
 
-function play(cap: string, join: { invite: string; name: string } | null, invite: string | null): void {
-  let token = localStorage.getItem(seatKey(cap));
+export interface PlayOptions {
+  /** A seat token to use instead of the one stored for this room (the in-page sprint demo). */
+  token?: string;
+  /** Where the room socket comes from; defaults to a real WebSocket. */
+  makeSocket?: WsOptions['makeSocket'];
+  /** The room runs in this page (src/client/demo.ts): there is no invite link to share. */
+  local?: boolean;
+}
+
+export function play(cap: string, join: { invite: string; name: string } | null, invite: string | null, opts: PlayOptions = {}): void {
+  let token = opts.token ?? localStorage.getItem(seatKey(cap));
   if (!token) {
     token = randomToken();
     localStorage.setItem(seatKey(cap), token);
   }
-  const t = new WsTransport<View, unknown, { target: number }>({ url: `${location.origin.replace(/^http/, 'ws')}${base}/ws/${cap}`, token, ...(join ? { join } : {}) });
+  const t = new WsTransport<View, unknown, { target: number }>({
+    url: `${location.origin.replace(/^http/, 'ws')}${base}/ws/${cap}`, token, ...(join ? { join } : {}), ...(opts.makeSocket ? { makeSocket: opts.makeSocket } : {}),
+  });
   let room: RoomInfo = t.room;
   let snap: Snap | null = null;
   const draw = (): void => {
@@ -65,7 +76,7 @@ function play(cap: string, join: { invite: string; name: string } | null, invite
     const parts: Node[] = [el('h1', { text: config.title })];
     if (room.status === 'pending') parts.push(el('p', { text: 'Waiting for the host to let you in…' }));
     else if (room.status !== 'joined') parts.push(el('p', { text: room.error ?? room.status }));
-    if (room.host && link) parts.push(el('p', { className: 'muted', text: `Invite link: ${location.origin}${base}/r/${cap}#k=${link}` }));
+    if (room.host && link && !opts.local) parts.push(el('p', { className: 'muted', text: `Invite link: ${location.origin}${base}/r/${cap}#k=${link}` }));
     if (room.host && lobby?.phase === 'lobby') {
       for (const p of lobby.pending ?? []) {
         parts.push(el('div', { className: 'row' }, [
@@ -103,12 +114,17 @@ function askName(cap: string, invite: string): void {
   render(el('main', {}, [el('h1', { text: config.title }), el('p', { text: 'You were invited to a game.' }), name, el('button', { text: 'Ask to join', onClick: () => play(cap, { invite, name: name.value }, null) })]));
 }
 
-const m = ROOM_PATH.exec(location.pathname);
-const invite = /^#k=([0-9a-f]{32})$/.exec(location.hash)?.[1] ?? null;
-if (!m) home();
-else if (localStorage.getItem(seatKey(m[1]!))) play(m[1]!, null, null);
-else if (invite) {
-  // Drop the secret from the address bar (and from history) once it has been read.
-  history.replaceState(null, '', location.pathname);
-  askName(m[1]!, invite);
-} else home('This link is missing its invite. Ask the host to send it again.');
+function route(): void {
+  const m = ROOM_PATH.exec(location.pathname);
+  const invite = /^#k=([0-9a-f]{32})$/.exec(location.hash)?.[1] ?? null;
+  if (!m) home();
+  else if (localStorage.getItem(seatKey(m[1]!))) play(m[1]!, null, null);
+  else if (invite) {
+    // Drop the secret from the address bar (and from history) once it has been read.
+    history.replaceState(null, '', location.pathname);
+    askName(m[1]!, invite);
+  } else home('This link is missing its invite. Ask the host to send it again.');
+}
+
+// The sprint demo (`npm run build:demo`) starts its own in-page room instead of routing by URL.
+if (import.meta.env.MODE !== 'demo') route();

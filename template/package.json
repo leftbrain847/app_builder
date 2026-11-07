@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "build:play": "VITE_TARGET=play vite build && node scripts/check-play-bundle.mjs",
+    "build:demo": "vite build -c demo/vite.config.ts && node demo/inline.mjs",
+    "snapshot": "npm run build:demo && node demo/snapshot.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "worker:dev": "npm run build && wrangler dev",

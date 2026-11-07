@@ -24,6 +24,7 @@
     "allowImportingTsExtensions": true
   },
   "include": [
+    "demo",
     "src",
     "worker",
     "test",

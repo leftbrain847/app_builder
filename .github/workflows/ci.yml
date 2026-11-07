@@ -30,6 +30,8 @@ jobs:
             dir="$RUNNER_TEMP/demo-$mode"
             node scripts/create-app.mjs "demo-$mode" --mode "$mode" --out "$dir"
             (cd "$dir" && npm install --no-audit --no-fund && npm run typecheck && npm test && npm run build && npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/out-$mode")
+            # the sprint demo: one self-contained page per day (solo and invite apps; turn apps have none)
+            if [ "$mode" != turn ]; then (cd "$dir" && npm run snapshot && test -s dist/demo/page.html); fi
           done
           (cd "$RUNNER_TEMP/demo-solo" && npm run build:play)
 

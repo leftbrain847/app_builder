@@ -37,6 +37,7 @@ Read all of this before changing the platform or an app's platform-facing parts.
 | One Access login covering every `/<id>/` path | **Not yet verified live** *(verify with two apps before scaling)* |
 | Invite mode: turn rooms joined by link, no login (host key, signed room links, host approval, bots, turn timers, hidden info, profiles) | Built (lifted from Settlers' own host, where it ran its tests and e2e); unit-tested here. **Not yet deployed live** |
 | Template: solo, turn and invite samples, tests, builds | Built; CI generates all three and runs their checks |
+| Sprint demo (`npm run build:demo`, `npm run snapshot`): the app as one self-contained page, no server | Built for solo and invite apps; CI builds both. Turn apps have none (rooms need Access) |
 | `create-app`, `sync`, `platform-config` scripts | Built; exercised by CI |
 | App CI: test, deploy, smoke, auto-rollback | Written. The smoke test is checked locally against a fake walled server (passes) and a fake open one (fails). **Not yet run against a live deploy** |
 | Android build + Play internal-track upload | Written; **untested** (Capacitor 8.5.3, `r0adkll/upload-google-play@v1`) *(verify)* |
@@ -66,7 +67,9 @@ SPEC.md                   this file (copied into every app as platform/SPEC.md)
 ```
 app.config.json      id, title, mode, host overrides, targets: the app's settings
 src/app.ts           the rules: a GameModule
-src/client/          UI: main.ts, ui.ts (DOM helpers, text only), styles.css (theme tokens)
+src/client/          UI: main.ts, ui.ts (DOM helpers, text only), styles.css (theme tokens), demo.ts (sprint demo entry)
+demo/                the sprint demo build: one self-contained page (solo and invite apps)
+snapshots/           committed day snapshots, `YYYY-MM-DD - <Title>.html` (frozen records; the index repo finds them)
 test/app.test.ts     vitest
 worker/index.ts      registers the module with the host; nothing else
 platform/            GENERATED: host + SDK source, SPEC.md, platform.config.json, VERSION.json
@@ -200,7 +203,7 @@ Friends only, via the browser link. A home-screen shortcut keeps its own cookies
 
 **app_builder (`.github/workflows/ci.yml`):**
 - Runs the platform's tests.
-- Generates a solo and a turn app from the template and puts each through install, typecheck, tests, build and a dry-run deploy, plus the Play bundle check.
+- Generates a solo, a turn and an invite app from the template and puts each through install, typecheck, tests, build and a dry-run deploy, plus the Play bundle check. For solo and invite it also builds the sprint demo, which fails on any network code or any file the page would need beside it.
 - Deploys the platform Worker on `main` once `platform.config.json` is filled in and the token secret exists.
 
 **Dev never spends the shared pool.** Use `npm run dev` (UI only), `npm run worker:dev` (`wrangler dev`, local) and vitest. No staging Worker on the production account.

@@ -6,6 +6,7 @@
   "host": {
     "emptyRoomTtlMs": 300000
   },
+  "sprint": { "timeZone": "America/New_York", "public": true },
   "targets": {
     "friends": { "enabled": true },
     "play": { "enabled": false, "versionName": "0.1.0", "multiplayer": false }
