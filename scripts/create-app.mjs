@@ -65,6 +65,11 @@ if (mode === 'turn') {
   delete pkg.scripts['build:demo'];
   delete pkg.scripts.snapshot;
   writeJson(join(out, 'package.json'), pkg);
+  const ts = readJson(join(out, 'tsconfig.json'));
+  ts.include = ts.include.filter((p) => p !== 'demo');
+  writeJson(join(out, 'tsconfig.json'), ts);
+  delete cfg.sprint;
+  writeJson(join(out, 'app.config.json'), cfg);
 }
 
 const { version } = syncInto(out);

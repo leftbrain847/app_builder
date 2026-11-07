@@ -12,7 +12,7 @@ export default defineConfig({
   build: {
     outDir: '../dist/demo',
     emptyOutDir: true,
-    assetsInlineLimit: 0,
+    assetsInlineLimit: Number.MAX_SAFE_INTEGER,   // images and fonts go inside the page: it must stand alone
     modulePreload: { polyfill: false },
     rollupOptions: { output: { inlineDynamicImports: true } },
   },

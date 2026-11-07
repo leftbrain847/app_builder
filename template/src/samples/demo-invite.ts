@@ -3,7 +3,9 @@
  * page and you play against bots. Same rules, same screens and same protocol as the deployed app; only the
  * socket is a loopback. Built into one self-contained page by `npm run build:demo`.
  */
+import { configureTurn, turnConfig } from '@app-builder/host/turn/config';
 import { LoopbackSocket, Net } from '@app-builder/host/turn/testing';
+import config from '../../app.config.json';
 import { app } from '../app';
 import { play } from './main';
 
@@ -11,7 +13,8 @@ import { play } from './main';
 const PUMP_MS = 50;
 
 async function start(): Promise<void> {
-  const net = await Net.make(app);
+  configureTurn(config.host);   // the same room settings the deployed Worker uses
+  const net = await Net.make(app, turnConfig());
   // The harness keeps its own clock; advance it with real time so bot pacing and turn timers run as they would live.
   const t0 = Date.now();
   const base = net.now;
