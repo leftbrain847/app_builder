@@ -5,6 +5,14 @@ Built on [app_builder](https://github.com/leftbrain847/app_builder).
 - **Friends:** behind your Cloudflare login at `/<id>/` on your apps hostname (see `platform/platform.config.json`).
 - **Google Play:** only if `targets.play.enabled` is true in `app.config.json`. Tag `vX.Y.Z` to build and upload to the internal track.
 
+## Run
+
+```sh
+npm ci
+npm run dev      # local dev server
+npm test         # the rules' tests
+```
+
 | Command | Does |
 | --- | --- |
 | `npm run dev` | local dev server (no login, no host) |
