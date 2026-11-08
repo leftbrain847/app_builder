@@ -1,5 +1,5 @@
 # Read nightly by leftbrain847/index. /new-project fills this in; edit any time.
-theme: games          # one of the index's config.themes
+theme: ""             # one of the index's config.themes
 tags: []              # from the index's config.tags; new tags lowercase_with_underscores
 what: ""              # one line on what __APP_TITLE__ is
 next: ""              # the next step
