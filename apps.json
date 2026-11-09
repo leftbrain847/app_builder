@@ -6,5 +6,9 @@
   {
     "id": "asl-translator",
     "title": "ASL Translator"
+  },
+  {
+    "id": "nfl-roster-grader",
+    "title": "Roster Grader"
   }
 ]
