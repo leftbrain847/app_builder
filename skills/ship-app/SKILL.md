@@ -21,7 +21,7 @@ The pipeline's real instructions live in the `leftbrain847/app_builder` repo, no
     - **Update an app's platform:** follow SPEC section 9. Compare `platform/VERSION.json` with app_builder's current commit and say what changed before syncing.
     - **Release to Play:** follow SPEC sections 5 and 7. Remind J of the one-time manual steps still open.
 3. **Before calling anything shipped,** meet the matching definition at the end of SPEC section 8:
-    - **sprint day:** artifact published, snapshot in the app PR, `build:demo` green, and play-tested at phone width like a person
+    - **sprint day:** artifact published, snapshot in the app PR, `build:demo` green, and play-tested at phone width like a person, and `demo/clip.json` scripted to show the core function in its first 1–2 seconds
     - **friends:** typecheck, tests and build pass, and the smoke test is green after CI deploys
     - **Play:** `npm run build:play` passes too
 4. **Report briefly.**
