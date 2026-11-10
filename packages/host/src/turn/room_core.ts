@@ -193,7 +193,7 @@ export class RoomCore {
     if (released) this.broadcastLobby(out);   // everyone's seat list shows the player back, not still on a bot
     if (!r.ok) {
       out.error(conn.id, 'illegal', r.error);
-      if (released) await this.afterChange(out, now, false);   // the seat change still has to be saved and the timer reset
+      if (released) await this.afterChange(out, now, false);   // the seat change still has to be saved and the timer re-armed
       return;
     }
     this.state = r.state;
@@ -204,6 +204,9 @@ export class RoomCore {
   private botSeatIds(): string[] { return this.meta.seats.filter((s) => s.bot !== 'none').map((s) => s.id); }
 
   private setBot(seat: Seat, bot: SeatBot): void {
+    // A seat handed back to a person needs a live turn timer. Its old deadline was cleared when it went to a bot, and
+    // afterChange only re-arms on a new wait key, so forget the key: otherwise the game waits on them with no timer.
+    if (bot === 'none' && seat.bot !== 'none') this.meta.waitKey = '';
     seat.bot = bot;
     if (this.instance && this.state) this.state = this.instance.setSeatBot(this.state, seat.id, bot !== 'none');
   }
