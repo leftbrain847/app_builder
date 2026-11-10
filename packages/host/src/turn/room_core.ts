@@ -204,9 +204,6 @@ export class RoomCore {
   private botSeatIds(): string[] { return this.meta.seats.filter((s) => s.bot !== 'none').map((s) => s.id); }
 
   private setBot(seat: Seat, bot: SeatBot): void {
-    // A seat handed back to a person needs a live turn timer. Its old deadline was cleared when it went to a bot, and
-    // afterChange only re-arms on a new wait key, so forget the key: otherwise the game waits on them with no timer.
-    if (bot === 'none' && seat.bot !== 'none') this.meta.waitKey = '';
     seat.bot = bot;
     if (this.instance && this.state) this.state = this.instance.setSeatBot(this.state, seat.id, bot !== 'none');
   }
@@ -224,7 +221,11 @@ export class RoomCore {
     if (this.instance && this.state && m.phase === 'playing') {
       this.instance.timers.sync(this.state, now);
       const w = this.instance.waitingOn(this.state);
-      if (w.key !== m.waitKey) { m.waitKey = w.key; m.waitDeadline = m.turnTimerS > 0 && w.seats.some((id: string) => this.isHuman(id)) ? now + m.turnTimerS * 1000 : null; }
+      const humanWaited = m.turnTimerS > 0 && w.seats.some((id: string) => this.isHuman(id));
+      if (w.key !== m.waitKey) { m.waitKey = w.key; m.waitDeadline = humanWaited ? now + m.turnTimerS * 1000 : null; }
+      // A person waited on with no timer running (their seat just came back from a bot): start one. A running timer is
+      // never extended here, so toggling autopilot or reconnecting cannot buy more time.
+      else if (m.waitDeadline === null && humanWaited) m.waitDeadline = now + m.turnTimerS * 1000;
       if (this.instance.isOver(this.state)) await this.finish(now);
       else {
         const plan = this.instance.bots.plan(this.state, this.botSeatIds());
