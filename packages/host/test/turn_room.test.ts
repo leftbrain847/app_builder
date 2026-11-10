@@ -125,6 +125,20 @@ describe('turn rooms: invite links, no login', () => {
     expect(net.core.meta.seats.find((s) => s.id === 'p2')!.bot).toBe('afk');
   });
 
+  it('a timed-out player who reconnects mid-turn gets a fresh turn timer too', async () => {
+    const { net, host, friend } = await twoPlayerGame();
+    await host.send({ t: 'host', cmd: { c: 'turn_timer', seconds: 30 } });
+    await host.send({ t: 'action', type: 'add', params: { n: 1 } });
+    net.now += 31_000;
+    await net.alarm();
+    expect(net.core.meta.seats.find((s) => s.id === 'p2')!.bot).toBe('afk');
+    const again = net.connect();
+    again.token = friend.token;
+    await again.send({ t: 'resume', token: again.token });
+    expect(net.core.meta.seats.find((s) => s.id === 'p2')!.bot).toBe('none');
+    expect(net.core.meta.waitDeadline).toBe(net.now + 30_000);
+  });
+
   it('toggling autopilot or acting out of turn never extends a running turn timer', async () => {
     const { net, host, friend } = await twoPlayerGame();
     await host.send({ t: 'host', cmd: { c: 'turn_timer', seconds: 30 } });
