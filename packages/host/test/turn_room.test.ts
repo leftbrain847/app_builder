@@ -108,6 +108,55 @@ describe('turn rooms: invite links, no login', () => {
     expect(host.last('lobby')!.seats.find((s) => s.id === 'p2')!.bot).toBe('none');
   });
 
+  it('a player who takes their seat back mid-turn gets a fresh turn timer, so the game cannot stall on them', async () => {
+    const { net, host, friend } = await twoPlayerGame();
+    await host.send({ t: 'host', cmd: { c: 'turn_timer', seconds: 30 } });
+    await host.send({ t: 'action', type: 'add', params: { n: 1 } });
+    net.now += 31_000;
+    await net.alarm();
+    expect(net.core.meta.seats.find((s) => s.id === 'p2')!.bot).toBe('afk');
+    // still p2's turn (the bot has not moved yet): p2 comes back without making a move
+    await friend.send({ t: 'autopilot', on: false });
+    expect(net.core.meta.seats.find((s) => s.id === 'p2')!.bot).toBe('none');
+    expect(net.core.meta.waitDeadline).toBe(net.now + 30_000);
+    // and if they go quiet again, the timer hands the seat back to a bot
+    net.now += 31_000;
+    await net.alarm();
+    expect(net.core.meta.seats.find((s) => s.id === 'p2')!.bot).toBe('afk');
+  });
+
+  it('a timed-out player who reconnects mid-turn gets a fresh turn timer too', async () => {
+    const { net, host, friend } = await twoPlayerGame();
+    await host.send({ t: 'host', cmd: { c: 'turn_timer', seconds: 30 } });
+    await host.send({ t: 'action', type: 'add', params: { n: 1 } });
+    net.now += 31_000;
+    await net.alarm();
+    expect(net.core.meta.seats.find((s) => s.id === 'p2')!.bot).toBe('afk');
+    const again = net.connect();
+    again.token = friend.token;
+    await again.send({ t: 'resume', token: again.token });
+    expect(net.core.meta.seats.find((s) => s.id === 'p2')!.bot).toBe('none');
+    expect(net.core.meta.waitDeadline).toBe(net.now + 30_000);
+  });
+
+  it('toggling autopilot or acting out of turn never extends a running turn timer', async () => {
+    const { net, host, friend } = await twoPlayerGame();
+    await host.send({ t: 'host', cmd: { c: 'turn_timer', seconds: 30 } });
+    await host.send({ t: 'action', type: 'add', params: { n: 1 } });
+    const deadline = net.core.meta.waitDeadline;
+    expect(deadline).toBe(net.now + 30_000);
+    net.now += 25_000;
+    // the waited-on player toggles autopilot to try to get a fresh 30s
+    await friend.send({ t: 'autopilot', on: true });
+    await friend.send({ t: 'autopilot', on: false });
+    expect(net.core.meta.waitDeadline).toBe(deadline);
+    // the other player toggles too, or plays out of turn
+    await host.send({ t: 'autopilot', on: true });
+    await host.send({ t: 'autopilot', on: false });
+    await host.send({ t: 'action', type: 'add', params: { n: 1 } });
+    expect(net.core.meta.waitDeadline).toBe(deadline);
+  });
+
   it('oversized and flooding messages are dropped, then the socket is closed', async () => {
     const net = await Net.make(counterGame);
     const host = await net.host();
