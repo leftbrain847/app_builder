@@ -14,7 +14,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DIR = 'dist/play';
-// A tripwire, not a proof: plain substrings, so keep the client free of these words even in comments.
+// A tripwire, not a proof: plain substrings (any letter case), so keep the client free of these words even in comments.
 const FORBIDDEN = ['/api/', 'WebSocket', 'fetch(', 'XMLHttpRequest', 'sendBeacon', 'EventSource', 'import("http', 'http://', 'https://'];
 
 /** Allowed link URLs: https only, no characters that could close a string or start markup, no credentials. */
@@ -31,11 +31,12 @@ export function allowedLinks(config) {
 
 const escapeRe = (x) => x.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 
-/** Remove allowed URLs written as `outboundHref:"URL"` (any quote; not part of a longer name); leave everything else. */
+/** Remove allowed URLs written as an object key `outboundHref:"URL"` (any quote); leave everything else. */
 export function stripAllowed(text, links) {
   let out = text;
   for (const u of links) {
-    out = out.replace(new RegExp(`(?<![\\w$])(outboundHref\\s*:\\s*)(["'\`])${escapeRe(u)}\\2`, 'g'), '$1$2$2');
+    // an object key: right after `{` or `,` (so not a ternary's `: "URL"` or a longer name)
+    out = out.replace(new RegExp(`(?<=[{,]\\s*)(outboundHref\\s*:\\s*)(["'\`])${escapeRe(u)}\\2`, 'g'), '$1$2$2');
   }
   return out;
 }
@@ -53,7 +54,11 @@ export function check(dir, links) {
   const hits = [];
   for (const f of files) {
     const text = stripAllowed(readFileSync(f, 'utf8'), links);
-    for (const needle of FORBIDDEN) if (text.includes(needle)) hits.push(`${f}: contains "${needle}"`);
+    const lower = text.toLowerCase();
+    for (const needle of FORBIDDEN) if (lower.includes(needle.toLowerCase())) hits.push(`${f}: contains "${needle}"`);
+    // a protocol-relative URL ("//host/...") loads over https from the app's origin
+    const rel = /(["'`]|\burl\(\s*)\/\/[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+/.exec(text);
+    if (rel) hits.push(`${f}: contains a protocol-relative URL "${rel[0]}"`);
   }
   return { files: files.length, hits };
 }

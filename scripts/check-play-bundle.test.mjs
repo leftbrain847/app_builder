@@ -23,7 +23,7 @@ test('no allowlist: any https:// string fails, as before', () => {
 });
 
 test('a listed URL passes only as an outboundHref value', () => {
-  for (const ok of [`x={outboundHref:"${LINK}"}`, `x={label:"a",outboundHref:'${LINK}',b:1}`, `x={ outboundHref : \`${LINK}\` }`]) {
+  for (const ok of [`x={outboundHref:"${LINK}"}`, `x={label:"a",outboundHref:'${LINK}',b:1}`, `x={ outboundHref : \`${LINK}\` }`, `x={a:1,\n  outboundHref:"${LINK}"}`]) {
     assert.equal(hits(ok), 0, ok);
   }
 });
@@ -35,8 +35,16 @@ test('anywhere else, or extended, a listed URL still fails (loads, assignments, 
     `<link rel="stylesheet" href="${LINK}">`, `<base href="${LINK}">`, `<image href="${LINK}">`, `<use xlink:href="${LINK}">`,
     `e("link",{rel:"stylesheet",href:"${LINK}"})`, `Object.assign(location,{href:"${LINK}"})`, `Reflect.set(location,"href","${LINK}")`,
     `<a ping="${LINK}">`, `const u="${LINK}";import(u)`, `x={url:"${LINK}"}`, `x={myoutboundHref:"${LINK}"}`, `x={"outboundHref":"${LINK}"}`,
+    `new Image().src=c?o.outboundHref:"${LINK}"`, `location.href=c?outboundHref:"${LINK}"`, `x=a.outboundHref:"${LINK}"`,
     `x={outboundHref:"${LINK}/../../evil"}`, `x={outboundHref:"${LINK}?q="+data}`, 'x={outboundHref:"https://example.org/other"}', `x={outboundHref:"x${LINK}"}`,
   ]) assert.equal(hits(bad), 1, bad);
+});
+
+test('uppercase and protocol-relative URLs fail too', () => {
+  for (const bad of ['x="HTTPS://evil.example/x"', 'x="Http://evil.example/x"', 'x="//evil.example/x"', "x='//evil.example'", 'a{background:url(//evil.example/i.png)}']) {
+    assert.ok(hits(bad) >= 1, bad);
+  }
+  for (const ok of ['x="a // b"', 'x=1 // comment', 'r=/\\/\\//g', 'x="//"']) assert.equal(hits(ok), 0, ok);
 });
 
 test('the allowlist never excuses network code', () => {
