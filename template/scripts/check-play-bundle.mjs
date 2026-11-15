@@ -2,13 +2,15 @@
 // The Play build must make no network calls: it's an offline, login-free app.
 // Fails if the built bundle contains any network code path.
 //
-// One exception: exact outbound link URLs listed in app.config.json, targets.play.allowedLinks. A link is not a
-// network call (nothing loads until the player taps it, and the page itself never requests it). Only a listed URL
-// written as a whole quoted string literal is let through, so no domain or prefix opens up: a longer URL that starts
-// with a listed one, or any other http(s):// string, still fails.
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+// One exception: exact outbound link URLs listed in app.config.json, targets.play.allowedLinks. A listed URL passes
+// only as a whole quoted string in link-target position: an object key or HTML attribute `href` (href:"URL",
+// href="URL") or setAttribute("href","URL"). Not as an img/script src, a CSS url(), a property assignment such as
+// location.href="URL", or inside a longer string, so no domain or prefix opens up and every other http(s):// string
+// still fails. This is a tripwire against mistakes, not a defense against deliberately hidden code (escaped or split
+// strings never were caught); reviewing the diff is that defense.
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const DIR = 'dist/play';
 // A tripwire, not a proof: plain substrings, so keep the client free of these words even in comments.
@@ -26,10 +28,20 @@ export function allowedLinks(config) {
   return list;
 }
 
-/** Remove allowed URLs that appear as a whole quoted string literal ("url", 'url' or `url`); leave everything else. */
+const escapeRe = (x) => x.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+
+/**
+ * Remove allowed URLs written as a link target: `href:"URL"` / `href="URL"` (any quote; `href` not preceded by a
+ * dot, letter, digit, `_` or `$`, so `a.href="URL"` and `location.href="URL"` don't count) or `"href","URL"`
+ * (setAttribute). Leave everything else, so the URL anywhere else still trips the check.
+ */
 export function stripAllowed(text, links) {
   let out = text;
-  for (const u of links) for (const q of ['"', "'", '`']) out = out.split(`${q}${u}${q}`).join(`${q}${q}`);
+  for (const u of links) {
+    const url = escapeRe(u);
+    out = out.replace(new RegExp(`(?<![\\w$.])(href\\s*[:=]\\s*)(["'\`])${url}\\2`, 'g'), '$1$2$2');
+    out = out.replace(new RegExp(`(["'\`])href\\1\\s*,\\s*(["'\`])${url}\\2`, 'g'), '$1href$1,$2$2');
+  }
   return out;
 }
 
@@ -51,7 +63,9 @@ export function check(dir, links) {
   return { files: files.length, hits };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+// run as a script (also when reached through a symlink: compare real paths, or the check would silently pass)
+const self = realpathSync(fileURLToPath(import.meta.url));
+if (process.argv[1] && existsSync(process.argv[1]) && realpathSync(resolve(process.argv[1])) === self) {
   const config = existsSync('app.config.json') ? JSON.parse(readFileSync('app.config.json', 'utf8')) : {};
   const links = allowedLinks(config);
   const { files, hits } = check(DIR, links);

@@ -168,7 +168,9 @@ The platform Worker owns `/`, `/index.html` and `/api/platform/*`. More specific
 - Capacitor, with the client bundled into the app, not a Trusted Web Activity. The Play build never touches the Access-gated host and needs no `assetlinks.json` exception.
 - `VITE_TARGET=play` compiles out every network path.
 - `scripts/check-play-bundle.mjs` fails the build if the bundle contains `fetch(`, `WebSocket`, `/api/`, `XMLHttpRequest`, `sendBeacon`, `EventSource`, `import("http`, `http://` or `https://`.
-- **Outbound links** are the one exception: exact URLs listed in `app.config.json` → `targets.play.allowedLinks` (https, a host and a plain path; no query, fragment, port or credentials). Each passes only as a whole quoted string literal, so no domain or prefix opens up. A link loads nothing until the player taps it. Residual risk, accepted: code could append data to a listed URL at runtime (e.g. `"https://x/y" + "?q=" + v`, where the `+` part has no `https://` of its own), so the tap would carry it to that one site. Offline apps hold nothing worth sending, and reviewing a diff that adds a link should catch it. Links render with `rel="noopener noreferrer"`. How a tapped link opens inside the Capacitor app (system browser or in-app) is **not yet verified on a device** *(verify)*.
+- **Outbound links** are the one exception: exact URLs listed in `app.config.json` → `targets.play.allowedLinks` (https, a host and a plain path; no query, fragment, port or credentials). A listed URL passes only as a link target: `href:"URL"` (object key), `href="URL"` (HTML attribute) or `setAttribute("href","URL")`, as a whole quoted string. Anywhere else (an img or script `src`, CSS `url()`, `location.href=`, inside a longer string) it fails like any other `https://`. Links render with `rel="noopener noreferrer"` and load nothing until tapped.
+- **What the check is and isn't.** It is a tripwire against mistakes, not a defense against deliberately hidden code: escaped or split strings (`"https:\/\/…"`, `globalThis["Web"+"Socket"]`) have never been caught, and a listed URL kept in an `href` key could still be read back by code and loaded. Reviewing the diff of any change that adds a link or touches outbound code is the real control. The Play build has no Content-Security-Policy that would block such loads at runtime (backlog).
+- How a tapped link opens inside the Capacitor app (system browser via an Intent vs. inside the WebView, where a remote page could reach the Capacitor bridge) is **not yet verified on a device** *(verify before any app ships links to Play)*.
 
 **Release.**
 - A `vX.Y.Z` tag builds a signed AAB and uploads it to the **internal** track. `versionCode` comes from the CI run number and `versionName` from the tag.
@@ -257,6 +259,8 @@ A new app is normally one day of J's sprint. **The day ships when its demo page 
 7. Passkeys or hardware keys on Cloudflare, GitHub, Google Play and the email behind them.
 
 ### 12. Backlog
+
+- Play build: a Content-Security-Policy meta (`default-src 'self'`) so no other origin can load at runtime, whatever the bundle check misses. Needs a device test of the Capacitor build first.
 
 - A protocol version handshake.
 - Invite mode: one subdomain per app (separate browser storage), revocable room links (a cap epoch), a per-connection join limit.
