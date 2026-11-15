@@ -168,8 +168,8 @@ The platform Worker owns `/`, `/index.html` and `/api/platform/*`. More specific
 - Capacitor, with the client bundled into the app, not a Trusted Web Activity. The Play build never touches the Access-gated host and needs no `assetlinks.json` exception.
 - `VITE_TARGET=play` compiles out every network path.
 - `scripts/check-play-bundle.mjs` fails the build if the bundle contains `fetch(`, `WebSocket`, `/api/`, `XMLHttpRequest`, `sendBeacon`, `EventSource`, `import("http`, `http://` or `https://`.
-- **Outbound links** are the one exception: exact URLs listed in `app.config.json` → `targets.play.allowedLinks` (https, a host and a plain path; no query, fragment, port or credentials). A listed URL passes only as a link target: `href:"URL"` (object key), `href="URL"` (HTML attribute) or `setAttribute("href","URL")`, as a whole quoted string. Anywhere else (an img or script `src`, CSS `url()`, `location.href=`, inside a longer string) it fails like any other `https://`. Links render with `rel="noopener noreferrer"` and load nothing until tapped.
-- **What the check is and isn't.** It is a tripwire against mistakes, not a defense against deliberately hidden code: escaped or split strings (`"https:\/\/…"`, `globalThis["Web"+"Socket"]`) have never been caught, and a listed URL kept in an `href` key could still be read back by code and loaded. Reviewing the diff of any change that adds a link or touches outbound code is the real control. The Play build has no Content-Security-Policy that would block such loads at runtime (backlog).
+- **Outbound links** are the one exception: exact URLs listed in `app.config.json` → `targets.play.allowedLinks` (https, a host and a plain path; no query, fragment, port or credentials). A listed URL passes only as the value of an object key named `outboundHref` (`outboundHref:"URL"`), a name no browser, HTML or Capacitor API reads, so it loads nothing on its own; the app's link helper copies it into an `<a href>` with `rel="noopener noreferrer"`, opened only when tapped. Anywhere else (any `href` or `src`, `<link>`, `<base>`, CSS `url()`, `location`, inside a longer string) it fails like any other `https://`. Code that copies an `outboundHref` anywhere but an `<a>` is the thing to look for in review.
+- **What the check is and isn't.** It is a tripwire against mistakes, not a defense against deliberately hidden code: escaped or split strings (`"https:\/\/…"`, `globalThis["Web"+"Socket"]`) have never been caught, and a listed URL in an `outboundHref` key could still be read back by code and loaded. Reviewing the diff of any change that adds a link or touches outbound code is the real control. The Play build has no Content-Security-Policy that would block such loads at runtime (backlog).
 - How a tapped link opens inside the Capacitor app (system browser via an Intent vs. inside the WebView, where a remote page could reach the Capacitor bridge) is **not yet verified on a device** *(verify before any app ships links to Play)*.
 
 **Release.**
@@ -260,7 +260,7 @@ A new app is normally one day of J's sprint. **The day ships when its demo page 
 
 ### 12. Backlog
 
-- Play build: a Content-Security-Policy meta (`default-src 'self'`) so no other origin can load at runtime, whatever the bundle check misses. Needs a device test of the Capacitor build first.
+- Play build: a Content-Security-Policy meta (`default-src 'self'`) so no other origin can load at runtime, whatever the bundle check misses. Needs a device test of the Capacitor build first. **Required, with the device test of how a tapped link opens, before any app ships an outbound link to Play.**
 
 - A protocol version handshake.
 - Invite mode: one subdomain per app (separate browser storage), revocable room links (a cap epoch), a per-connection join limit.

@@ -3,11 +3,12 @@
 // Fails if the built bundle contains any network code path.
 //
 // One exception: exact outbound link URLs listed in app.config.json, targets.play.allowedLinks. A listed URL passes
-// only as a whole quoted string in link-target position: an object key or HTML attribute `href` (href:"URL",
-// href="URL") or setAttribute("href","URL"). Not as an img/script src, a CSS url(), a property assignment such as
-// location.href="URL", or inside a longer string, so no domain or prefix opens up and every other http(s):// string
-// still fails. This is a tripwire against mistakes, not a defense against deliberately hidden code (escaped or split
-// strings never were caught); reviewing the diff is that defense.
+// only as the value of an object key named `outboundHref` (outboundHref:"URL", whole quoted string). No browser,
+// HTML or Capacitor API reads that name, so the URL loads nothing unless code deliberately copies it into an <a>'s
+// href, which is what the app's link helper does and what a reviewer should look for. Any other appearance (an
+// href/src attribute, CSS url(), location, a longer string) still fails, as does every other http(s):// string.
+// This is a tripwire against mistakes, not a defense against deliberately hidden code (escaped or split strings
+// never were caught); reviewing the diff is that defense. Imported as a module (for tests) it checks nothing.
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,17 +31,11 @@ export function allowedLinks(config) {
 
 const escapeRe = (x) => x.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 
-/**
- * Remove allowed URLs written as a link target: `href:"URL"` / `href="URL"` (any quote; `href` not preceded by a
- * dot, letter, digit, `_` or `$`, so `a.href="URL"` and `location.href="URL"` don't count) or `"href","URL"`
- * (setAttribute). Leave everything else, so the URL anywhere else still trips the check.
- */
+/** Remove allowed URLs written as `outboundHref:"URL"` (any quote; not part of a longer name); leave everything else. */
 export function stripAllowed(text, links) {
   let out = text;
   for (const u of links) {
-    const url = escapeRe(u);
-    out = out.replace(new RegExp(`(?<![\\w$.])(href\\s*[:=]\\s*)(["'\`])${url}\\2`, 'g'), '$1$2$2');
-    out = out.replace(new RegExp(`(["'\`])href\\1\\s*,\\s*(["'\`])${url}\\2`, 'g'), '$1href$1,$2$2');
+    out = out.replace(new RegExp(`(?<![\\w$])(outboundHref\\s*:\\s*)(["'\`])${escapeRe(u)}\\2`, 'g'), '$1$2$2');
   }
   return out;
 }

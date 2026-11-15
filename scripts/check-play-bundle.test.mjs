@@ -18,28 +18,30 @@ const LINK = 'https://example.org/teams/report';
 const hits = (js) => check(bundle(js), [LINK]).hits.length;
 
 test('no allowlist: any https:// string fails, as before', () => {
-  assert.equal(check(bundle(`x={href:"${LINK}"}`), []).hits.length, 1);
+  assert.equal(check(bundle(`x={outboundHref:"${LINK}"}`), []).hits.length, 1);
   assert.equal(check(bundle('const x = 1'), []).hits.length, 0);
 });
 
-test('a listed URL passes only as a link target', () => {
-  for (const ok of [`x={href:"${LINK}"}`, `x={label:"a",href:'${LINK}',b:1}`, `<a href="${LINK}">`, `x={ href : \`${LINK}\` }`, `a.setAttribute("href","${LINK}")`]) {
+test('a listed URL passes only as an outboundHref value', () => {
+  for (const ok of [`x={outboundHref:"${LINK}"}`, `x={label:"a",outboundHref:'${LINK}',b:1}`, `x={ outboundHref : \`${LINK}\` }`]) {
     assert.equal(hits(ok), 0, ok);
   }
 });
 
-test('anywhere else, or extended, a listed URL still fails (automatic loads, assignments, longer URLs)', () => {
+test('anywhere else, or extended, a listed URL still fails (loads, assignments, longer URLs)', () => {
   for (const bad of [
     `url("${LINK}")`, `<img src="${LINK}">`, `<script src="${LINK}"></script>`, `new Image().src="${LINK}"+"?d="+x`,
-    `location.href="${LINK}"`, `a.href="${LINK}"`, `<a ping="${LINK}">`, `const u="${LINK}";import(u)`, `x={url:"${LINK}"}`,
-    `x={href:"${LINK}/../../evil"}`, `x={href:"${LINK}?q="+data}`, 'x={href:"https://example.org/other"}', `x={href:"x${LINK}"}`,
-    `x={myhref:"${LINK}"}`,
+    `location.href="${LINK}"`, `a.href="${LINK}"`, `<a href="${LINK}">`, `x={href:"${LINK}"}`, `a.setAttribute("href","${LINK}")`,
+    `<link rel="stylesheet" href="${LINK}">`, `<base href="${LINK}">`, `<image href="${LINK}">`, `<use xlink:href="${LINK}">`,
+    `e("link",{rel:"stylesheet",href:"${LINK}"})`, `Object.assign(location,{href:"${LINK}"})`, `Reflect.set(location,"href","${LINK}")`,
+    `<a ping="${LINK}">`, `const u="${LINK}";import(u)`, `x={url:"${LINK}"}`, `x={myoutboundHref:"${LINK}"}`, `x={"outboundHref":"${LINK}"}`,
+    `x={outboundHref:"${LINK}/../../evil"}`, `x={outboundHref:"${LINK}?q="+data}`, 'x={outboundHref:"https://example.org/other"}', `x={outboundHref:"x${LINK}"}`,
   ]) assert.equal(hits(bad), 1, bad);
 });
 
 test('the allowlist never excuses network code', () => {
   assert.ok(hits(`fetch("${LINK}")`) >= 1);
-  assert.ok(hits(`x={href:"${LINK}"};fetch(x.href)`) >= 1);
+  assert.ok(hits(`x={outboundHref:"${LINK}"};fetch(x.outboundHref)`) >= 1);
   assert.ok(hits('new WebSocket("wss://x")') >= 1);
 });
 
@@ -52,9 +54,9 @@ test('allowlist entries: https, host and plain path only', () => {
   assert.throws(() => allowedLinks({ targets: { play: { allowedLinks: LINK } } }), /list/);
 });
 
-test('stripAllowed only empties the link target', () => {
-  assert.equal(stripAllowed(`{href:"${LINK}"}`, [LINK]), '{href:""}');
-  assert.equal(stripAllowed(`{href:"${LINK}x"}`, [LINK]), `{href:"${LINK}x"}`);
+test('stripAllowed only empties an outboundHref value', () => {
+  assert.equal(stripAllowed(`{outboundHref:"${LINK}"}`, [LINK]), '{outboundHref:""}');
+  assert.equal(stripAllowed(`{outboundHref:"${LINK}x"}`, [LINK]), `{outboundHref:"${LINK}x"}`);
 });
 
 test('run as a script, also through a symlink: network code exits non-zero', () => {
