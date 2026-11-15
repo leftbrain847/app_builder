@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { allowedLinks, check, stripAllowed } from './check-play-bundle.mjs';
+import { allowedLinks, check, stripAllowed } from '../template/scripts/check-play-bundle.mjs';
 
 const bundle = (js) => {
   const dir = mkdtempSync(join(tmpdir(), 'play-'));
