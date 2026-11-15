@@ -167,7 +167,8 @@ The platform Worker owns `/`, `/index.html` and `/api/platform/*`. More specific
 **Packaging.**
 - Capacitor, with the client bundled into the app, not a Trusted Web Activity. The Play build never touches the Access-gated host and needs no `assetlinks.json` exception.
 - `VITE_TARGET=play` compiles out every network path.
-- `scripts/check-play-bundle.mjs` fails the build if the bundle contains `fetch(`, `WebSocket`, `/api/`, `XMLHttpRequest`, `sendBeacon` or `EventSource`.
+- `scripts/check-play-bundle.mjs` fails the build if the bundle contains `fetch(`, `WebSocket`, `/api/`, `XMLHttpRequest`, `sendBeacon`, `EventSource`, `import("http`, `http://` or `https://`.
+- **Outbound links** are the one exception: exact URLs listed in `app.config.json` → `targets.play.allowedLinks` (https, a host and a plain path; no query, fragment, port or credentials). Each passes only as a whole quoted string literal, so no domain or prefix opens up. A link loads nothing until the player taps it. Residual risk, accepted: code could append data to a listed URL at runtime (e.g. `"https://x/y" + "?q=" + v`, where the `+` part has no `https://` of its own), so the tap would carry it to that one site. Offline apps hold nothing worth sending, and reviewing a diff that adds a link should catch it. Links render with `rel="noopener noreferrer"`. How a tapped link opens inside the Capacitor app (system browser or in-app) is **not yet verified on a device** *(verify)*.
 
 **Release.**
 - A `vX.Y.Z` tag builds a signed AAB and uploads it to the **internal** track. `versionCode` comes from the CI run number and `versionName` from the tag.
