@@ -14,7 +14,7 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
-    "deploy:platform": "wrangler deploy -c wrangler.platform.toml"
+    "deploy:platform": "node ../../scripts/platform-config.mjs && wrangler deploy -c wrangler.platform.toml"
   },
   "devDependencies": {
     "vitest": "5.1.0",

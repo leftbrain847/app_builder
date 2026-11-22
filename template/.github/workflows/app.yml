@@ -2,6 +2,7 @@
 #
 # Repo secrets this needs (Settings → Secrets and variables → Actions):
 #   CLOUDFLARE_API_TOKEN          friends deploys (Workers Scripts: Edit on your account)
+#   ALLOWED_EMAILS                optional: friends' emails, comma-separated (solo and turn apps; never in the repo)
 #   PLAY_SERVICE_ACCOUNT_JSON     Play uploads (only if targets.play.enabled)
 #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD   (Play only)
 name: app
@@ -11,6 +12,8 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
+  # Run workflow (Actions tab) redeploys, e.g. after changing the ALLOWED_EMAILS secret.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -36,7 +39,7 @@ jobs:
 
   deploy-friends:
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,9 +59,21 @@ jobs:
         if: steps.gate.outputs.ready == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Uploaded as the Worker secret of the same name; invite apps don't use it.
+          ALLOWED_EMAILS: ${{ secrets.ALLOWED_EMAILS }}
         run: |
           export CLOUDFLARE_ACCOUNT_ID=$(node -p "require('./platform/platform.config.json').cloudflareAccountId")
-          npm run deploy
+          secrets=()
+          if [ "$(node -p "require('./app.config.json').mode")" != invite ]; then
+            if [ -n "$ALLOWED_EMAILS" ]; then
+              trap 'rm -f "$RUNNER_TEMP/secrets.json"' EXIT
+              node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({ ALLOWED_EMAILS: process.env.ALLOWED_EMAILS }))" "$RUNNER_TEMP/secrets.json"
+              secrets=(-- --secrets-file "$RUNNER_TEMP/secrets.json")
+            elif [ "$(node -p "require('./platform/platform.config.json').requireEmailAllowlist === true")" = true ]; then
+              echo "::error::requireEmailAllowlist is on but the ALLOWED_EMAILS secret is not set on this repo"; exit 1
+            fi
+          fi
+          npm run deploy "${secrets[@]}"
       - name: Smoke test (the app must sit behind the login wall)
         # Runs even if Deploy failed partway: wrangler may have published before erroring.
         if: ${{ !cancelled() && steps.gate.outputs.ready == 'true' && steps.deploy.outcome != 'skipped' }}
@@ -73,6 +88,7 @@ jobs:
           # On an app's first deploy there is no earlier version to roll back to, so take the Worker
           # down instead: an app that might be outside the login wall must not stay live.
           npx wrangler rollback -y -m "smoke test failed for ${GITHUB_SHA}" || npx wrangler delete --force
+          echo "::error::Rolled back: the previous version, with its ALLOWED_EMAILS list, is live again. If you just removed someone, fix the failure and run this workflow again."
 
   # UNTESTED: written against Capacitor 8.5.3 and Play's internal track; verify on the first real app.
   android:
@@ -115,7 +131,8 @@ jobs:
           rm upload.jks
       - name: Upload to Play's internal track (promotion is manual, in the Play Console)
         if: steps.gate.outputs.play == 'true'
-        uses: r0adkll/upload-google-play@v1
+        # Pinned to a commit: this third-party action receives the Play service-account key. Dependabot proposes updates.
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: __PLAY_APP_ID__

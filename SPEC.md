@@ -39,8 +39,9 @@ Read all of this before changing the platform or an app's platform-facing parts.
 | Template: solo, turn and invite samples, tests, builds | Built; CI generates all three and runs their checks |
 | Sprint demo (`npm run build:demo`, `npm run snapshot`): the app as one self-contained page, no server | Built for solo and invite apps; CI builds both. Turn apps have none (rooms need Access) |
 | `create-app`, `sync`, `platform-config` scripts | Built; exercised by CI |
+| Email allowlist: `ALLOWED_EMAILS` GitHub secret uploaded by each deploy (`--secrets-file`) | Written; deploy logic checked locally and `--secrets-file` accepted by a dry run. **Not yet tested live** *(verify)* |
 | App CI: test, deploy, smoke, auto-rollback | Written. The smoke test is checked locally against a fake walled server (passes) and a fake open one (fails). **Not yet run against a live deploy** |
-| Android build + Play internal-track upload | Written; **untested** (Capacitor 8.5.3, `r0adkll/upload-google-play@v1`) *(verify)* |
+| Android build + Play internal-track upload | Written; **untested** (Capacitor 8.5.3, `r0adkll/upload-google-play` pinned to v1.1.5's commit) *(verify)* |
 | Protocol version handshake (old cached clients vs a new server) | **Not built** |
 | Usage meter across Workers | Built as one shared object; tallies are per isolate and approximate |
 
@@ -56,7 +57,7 @@ scripts/create-app.mjs    new app from the template
 scripts/sync-platform.mjs refresh an app's platform/ copy
 scripts/platform-config.mjs  regenerate the platform Worker's wrangler config
 scripts/lib.mjs           shared by the three scripts (renders every wrangler.toml)
-platform.config.json      account-wide settings: hostname, zone, account id, Access team and AUD, allowed emails
+platform.config.json      account-wide settings: hostname, zone, account id, Access team and AUD, whether the email allowlist is required
 apps.json                 the apps the index page lists
 skills/ship-app/          the skill J uploads to claude.ai
 SPEC.md                   this file (copied into every app as platform/SPEC.md)
@@ -82,7 +83,7 @@ Apps depend on `@app-builder/host` and `@app-builder/client-sdk` through `file:p
 
 ### 3. Settings are config
 
-- **`platform.config.json`** holds what every app shares. None of it is secret: the Access team name and AUD tag appear in every login token. `allowedEmails` is the immediate-revocation list (see Operations).
+- **`platform.config.json`** holds what every app shares. None of it is secret: the Access team name and AUD tag appear in every login token. It never holds real people's emails, because this repo and every app repo may be public. The immediate-revocation list is the `ALLOWED_EMAILS` GitHub secret on this repo and each solo or turn app repo; the deploy job uploads it as the Worker secret of the same name (see Operations). With `requireEmailAllowlist: true`, a deploy without that secret fails and a Worker without it denies everyone.
 - **`app.config.json`** holds one app's settings. `host` overrides any `HostConfig` value for that app's Worker (for example, `emptyRoomTtlMs`: 5 minutes by default, 7 days for turn apps so a game survives overnight).
 - **Rules** live in typed config objects in `src/app.ts` with documented defaults. No magic numbers in logic.
 
@@ -105,7 +106,7 @@ The platform Worker owns `/`, `/index.html` and `/api/platform/*`. More specific
 - Every request, static files included (`run_worker_first = true`), needs a `Cf-Access-Jwt-Assertion` token.
 - It must be RS256-signed by a current team key, matched by `kid`. Keys are cached for an hour; an unknown `kid` refetches at most once a minute.
 - It must carry the right `aud` and `iss`, valid `exp`/`iat`/`nbf`, and an email.
-- If `allowedEmails` is non-empty, the email must be on it.
+- If the `ALLOWED_EMAILS` secret is non-empty, the email must be on it. If `requireEmailAllowlist` is on and the secret is empty or unset, everyone is denied.
 - Missing config denies everything.
 - The Worker sets `X-Verified-Player` itself; Durable Objects have no public route.
 - Every response carries the CSP `'self'`, `nosniff`, `no-referrer` and `frame-ancestors 'none'`.
@@ -220,7 +221,7 @@ A new app is normally one day of J's sprint. **The day ships when its demo page 
 6. **Publish the day's artifact.** Publish `dist/demo/page.html` as a Claude artifact. Its title is already `YYYY-MM-DD - <Title>`, dated in `app.config.json` → `sprint.timeZone`. Republish the same artifact for fixes during the day; once the day is over, it's a frozen record.
 7. **Snapshot and PRs.** Run `npm run snapshot` and commit `snapshots/YYYY-MM-DD - <Title>.html` with the app, then open the app's PR. In a separate app_builder PR, add `{ "id": "<id>", "title": "<Title>" }` to `apps.json`. No index edit is needed: its nightly refresh finds the snapshot on the app's default branch.
 8. **Report.** Give the artifact link, the PRs J has to merge, and the public sprint site (`https://<owner>.github.io/<index.yml config.site.repo>/`). After J merges, the index's nightly refresh (1:47 AM ET) lists the day. It publishes the day on the public site only if the page carries the `sprint-public` tag (`sprint.public` in `app.config.json`) and passes UAT and the secret scan. To publish sooner, J presses Run workflow on index's refresh-index.
-9. **Later: the live friends link.** J adds the `CLOUDFLARE_API_TOKEN` secret to the app repo (invite apps also need `wrangler secret put HOST_KEY`), and the next push to `main` deploys and smoke-tests. For Play, tag `v0.1.0`; CI uploads to the internal track, and J fills in the listing and runs the closed test.
+9. **Later: the live friends link.** J adds the `CLOUDFLARE_API_TOKEN` secret to the app repo, and for solo and turn apps the `ALLOWED_EMAILS` secret if `requireEmailAllowlist` is on (invite apps also need `wrangler secret put HOST_KEY`), and the next push to `main` deploys and smoke-tests. For Play, tag `v0.1.0`; CI uploads to the internal track, and J fills in the listing and runs the closed test.
 
 **Shipped, sprint day:** the artifact is published, the app PR holds the snapshot, typecheck, tests, build and `build:demo` pass, it was play-tested at phone width, and `demo/clip.json` shows the core function.
 **Shipped, friends:** a deployed URL, a green smoke test, README budget notes, and at least one rules test.
@@ -235,15 +236,16 @@ A new app is normally one day of J's sprint. **The day ships when its demo page 
 ### 10. Operations
 
 - **Logs:** `wrangler tail app-<id>`.
-- **Rollback:** `wrangler rollback`; CI does it on a failed smoke test.
+- **Rollback:** `wrangler rollback`; CI does it on a failed smoke test. A rollback to a version older than your last `ALLOWED_EMAILS` change brings back that version's list (wrangler 4.162.0's source asks first, but `-y` skips the question), so re-run the deploy workflow after a manual rollback. Emptying the GitHub secret doesn't clear the Worker's list (uploads only add); to turn the check off, set `requireEmailAllowlist: false` and delete the `ALLOWED_EMAILS` secret from each Worker's settings in the Cloudflare dashboard.
 - **Daily limit reached:** new runs and rooms are refused with `over_budget`, and apps show it plainly.
 - **Remove a friend at once:**
-    1. Remove their email from `platform.config.json` `allowedEmails`.
-    2. Push app_builder, then `sync` and push each app.
+    1. Update the `ALLOWED_EMAILS` GitHub secret (comma-separated, without them) on app_builder and on each solo or turn app repo (its `app.config.json` `mode`; invite apps don't use the list).
+    2. In each of those repos, Actions → the `ci` or `app` workflow → Run workflow on `main`. The deploy uploads the new list *(verify live)*. If an app's run fails and rolls back, the old list is live again: fix it and run again.
     3. Remove them from the Access policy too.
 
    Removing them from the policy alone doesn't end a live session.
-- **First deploy order:** the platform Worker first, since apps bind to its classes. Then the apps.
+- **Moving a Worker deployed before the allowlist became a secret:** add the GitHub secret, then sync and deploy (the new config drops the old `ALLOWED_EMAILS` var and the deploy uploads the secret). Turn on `requireEmailAllowlist` so a missing secret fails the deploy.
+- **First deploy order:** the platform Worker first, since apps bind to its classes. Then the apps. With `requireEmailAllowlist` on, add the `ALLOWED_EMAILS` secret to a new app repo before its first deploy, or the deploy fails.
 
 ### 11. Security rules (non-negotiable)
 
