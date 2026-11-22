@@ -1,5 +1,18 @@
 # __APP_TITLE__
 
+## First: repo settings (unless project.yml has `settings_done: true`)
+GitHub copies files, not settings, so J sets these by hand once per repo. At the start of any session, unless `project.yml` says `settings_done: true`, post this checklist to J **before other work**, as tappable links with this repo's real owner/name filled in for `REPO`, then keep working. When J confirms, set `settings_done: true` in the next PR. Check what you can first (`gh api repos/REPO/rulesets`, `gh api repos/REPO --jq .visibility`) and only list what's still missing.
+- **Visibility:** public unless J says otherwise. Private repos draw on the free plan's monthly Actions minutes, which J has run out of before (Nov 2026), leaving CI and nightly jobs dead until the reset; public repos' Actions are free.
+- **Actions** `https://github.com/REPO/settings/actions` (each section has its own Save):
+  - require actions pinned to a full-length commit SHA
+  - fork PR approval: require approval for all external contributors
+  - workflow permissions: read repository contents; untick "Allow GitHub Actions to create and approve pull requests"
+  - log retention: 1 day
+- **Pages** `https://github.com/REPO/settings/pages`, only if the app is hosted on GitHub Pages: source GitHub Actions
+- **Code security** `https://github.com/REPO/settings/security_analysis`: Dependabot alerts, Dependabot security updates, secret scanning, push protection. Skip if J turned these on for all new repos at https://github.com/settings/security_analysis
+- **Ruleset** `https://github.com/REPO/settings/rules` → New branch ruleset: name `protect_main`, Active, target default branch, restrict deletions, block force pushes, require a pull request (0 approvals)
+
+
 An app built on app_builder. The platform rules live in `platform/SPEC.md`: read its "For Claude Code" part before changing anything outside `src/` or `test/`. This file holds only what's specific to this app.
 
 ## Decisions already made (do not relitigate without asking)
