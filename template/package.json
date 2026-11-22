@@ -13,7 +13,8 @@
     "test": "vitest run",
     "worker:dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "depth": "node scripts/depth-check.mjs"
   },
   "dependencies": {
     "@app-builder/client-sdk": "file:platform/client-sdk",

@@ -39,6 +39,7 @@ Read all of this before changing the platform or an app's platform-facing parts.
 | Template: solo, turn and invite samples, tests, builds | Built; CI generates all three and runs their checks |
 | Sprint demo (`npm run build:demo`, `npm run snapshot`): the app as one self-contained page, no server | Built for solo and invite apps; CI builds both. Turn apps have none (rooms need Access) |
 | `create-app`, `sync`, `platform-config` scripts | Built; exercised by CI |
+| Depth gate (`depth.config.json`, `depth.json`, `npm run depth`), warn-only | Built; scoring unit-tested here (`scripts/test/depth.test.mjs`) |
 | Email allowlist: `ALLOWED_EMAILS` GitHub secret uploaded by each deploy (`--secrets-file`) | Written; deploy logic checked locally and `--secrets-file` accepted by a dry run. **Not yet tested live** *(verify)* |
 | App CI: test, deploy, smoke, auto-rollback | Written. The smoke test is checked locally against a fake walled server (passes) and a fake open one (fails). **Not yet run against a live deploy** |
 | Android build + Play internal-track upload | Written; **untested** (Capacitor 8.5.3, `r0adkll/upload-google-play` pinned to v1.1.5's commit) *(verify)* |
@@ -57,6 +58,7 @@ scripts/create-app.mjs    new app from the template
 scripts/sync-platform.mjs refresh an app's platform/ copy
 scripts/platform-config.mjs  regenerate the platform Worker's wrangler config
 scripts/lib.mjs           shared by the three scripts (renders every wrangler.toml)
+depth.config.json         the depth rubric every app is scored against
 platform.config.json      account-wide settings: hostname, zone, account id, Access team and AUD, whether the email allowlist is required
 apps.json                 the apps the index page lists
 skills/ship-app/          the skill J uploads to claude.ai
@@ -67,15 +69,16 @@ SPEC.md                   this file (copied into every app as platform/SPEC.md)
 
 ```
 app.config.json      id, title, mode, host overrides, targets: the app's settings
+depth.json           the app's depth spec: a 0-3 score and a plan per pillar (`npm run depth`)
 src/app.ts           the rules: a GameModule
 src/client/          UI: main.ts, ui.ts (DOM helpers, text only), styles.css (theme tokens), demo.ts (sprint demo entry)
 demo/                the sprint demo build: one self-contained page (solo and invite apps)
 snapshots/           committed day snapshots, `YYYY-MM-DD - <Title>.html` (frozen records; the index repo finds them)
 test/app.test.ts     vitest
 worker/index.ts      registers the module with the host; nothing else
-platform/            GENERATED: host + SDK source, SPEC.md, platform.config.json, VERSION.json
+platform/            GENERATED: host + SDK source, SPEC.md, platform.config.json, depth.config.json, VERSION.json
 wrangler.toml        GENERATED from app.config.json + platform.config.json
-.github/workflows/app.yml, scripts/smoke.mjs, scripts/check-play-bundle.mjs   GENERATED
+.github/workflows/app.yml, scripts/smoke.mjs, scripts/check-play-bundle.mjs, scripts/depth-check.mjs   GENERATED
 CLAUDE.md            this app's own decisions only
 ```
 
@@ -85,6 +88,7 @@ Apps depend on `@app-builder/host` and `@app-builder/client-sdk` through `file:p
 
 - **`platform.config.json`** holds what every app shares. None of it is secret: the Access team name and AUD tag appear in every login token. It never holds real people's emails, because this repo and every app repo may be public. The immediate-revocation list is the `ALLOWED_EMAILS` GitHub secret on this repo and each solo or turn app repo; the deploy job uploads it as the Worker secret of the same name (see Operations). With `requireEmailAllowlist: true`, a deploy without that secret fails and a Worker without it denies everyone.
 - **`app.config.json`** holds one app's settings. `host` overrides any `HostConfig` value for that app's Worker (for example, `emptyRoomTtlMs`: 5 minutes by default, 7 days for turn apps so a game survives overnight).
+- **`depth.config.json`** is the depth rubric every app is scored against: eight pillars, their weights, the pillars that mark a build as hypercasual when scored 0, and the ship bar. Sync copies it into each app as `platform/depth.config.json`. `enforce` is `warn` (J's choice, Nov 2026): the score is reported, nothing is blocked.
 - **Rules** live in typed config objects in `src/app.ts` with documented defaults. No magic numbers in logic.
 
 ### 4. Friends target (Cloudflare)
@@ -216,6 +220,7 @@ A new app is normally one day of J's sprint. **The day ships when its demo page 
 1. **Setup (J).** Create an empty GitHub repo. Start a session with it, `app_builder` and `index` attached, and type `/ship-app <id>: <what to build>` (or attach a brief).
 2. **Generate.** Pick the mode: `solo` for single-player, `invite` for anything multiplayer (it plays in the demo page against bots), `turn` only if J asks (it needs Access and has no demo). Run `node scripts/create-app.mjs <id> --mode <mode> --title "<Title>" --out <app repo clone>`, then `npm install` there and commit `package-lock.json` (CI uses `npm ci`).
 3. **Build.** Write the rules in `src/app.ts`, the UI in `src/client/` and tests in `test/`, keeping the sample's shape. `npm run typecheck && npm test && npm run build && npm run build:demo` must pass.
+   **Depth.** Fill in `depth.json`: a 0–3 score and a one-line plan for every pillar, even ones today's build doesn't reach. Run `npm run depth` and put its table in the report. A 0 on progression, ownership or runway marks the build as hypercasual: say so plainly. It's a warning, not a block.
 4. **Play-test it like a person.** Open `dist/demo/page.html` at phone width (390 px) in Chromium, play several full turns, and look at the screenshots. Everything a player needs (whose turn it is, what was rolled or drawn, what just moved, the result) must stay on screen long enough to read. Check there's no horizontal overflow at 360 px. Fix what you find before publishing.
 5. **Write the demo clip.** Edit `demo/clip.json`: the script the index uses to record the app's homepage clip, a 4–9 s dark-mode video that plays once on hover and holds its last frame. It must show the app's core function within the first 1–2 seconds (the move, the answer, the result), with no intro or menus. Steps before `{"start": true}` set the scene and aren't shown; then a few `tap`/`type`/`wait` steps do the core thing. `selector` is the part of the page to show. `npm run build:demo` checks the format.
 6. **Publish the day's artifact.** Publish `dist/demo/page.html` as a Claude artifact. Its title is already `YYYY-MM-DD - <Title>`, dated in `app.config.json` → `sprint.timeZone`. Republish the same artifact for fixes during the day; once the day is over, it's a frozen record.
@@ -223,7 +228,7 @@ A new app is normally one day of J's sprint. **The day ships when its demo page 
 8. **Report.** Give the artifact link, the PRs J has to merge, and the public sprint site (`https://<owner>.github.io/<index.yml config.site.repo>/`). After J merges, the index's nightly refresh (1:47 AM ET) lists the day. It publishes the day on the public site only if the page carries the `sprint-public` tag (`sprint.public` in `app.config.json`) and passes UAT and the secret scan. To publish sooner, J presses Run workflow on index's refresh-index.
 9. **Later: the live friends link.** J adds the `CLOUDFLARE_API_TOKEN` secret to the app repo, and for solo and turn apps the `ALLOWED_EMAILS` secret if `requireEmailAllowlist` is on (invite apps also need `wrangler secret put HOST_KEY`), and the next push to `main` deploys and smoke-tests. For Play, tag `v0.1.0`; CI uploads to the internal track, and J fills in the listing and runs the closed test.
 
-**Shipped, sprint day:** the artifact is published, the app PR holds the snapshot, typecheck, tests, build and `build:demo` pass, it was play-tested at phone width, and `demo/clip.json` shows the core function.
+**Shipped, sprint day:** the artifact is published, the app PR holds the snapshot, typecheck, tests, build and `build:demo` pass, it was play-tested at phone width, and `demo/clip.json` shows the core function, and `depth.json` is filled in with its `npm run depth` result reported.
 **Shipped, friends:** a deployed URL, a green smoke test, README budget notes, and at least one rules test.
 **Shipped, Play:** on the internal track with the no-network check green.
 
