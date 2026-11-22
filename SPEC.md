@@ -40,7 +40,7 @@ Read all of this before changing the platform or an app's platform-facing parts.
 | Sprint demo (`npm run build:demo`, `npm run snapshot`): the app as one self-contained page, no server | Built for solo and invite apps; CI builds both. Turn apps have none (rooms need Access) |
 | `create-app`, `sync`, `platform-config` scripts | Built; exercised by CI |
 | App CI: test, deploy, smoke, auto-rollback | Written. The smoke test is checked locally against a fake walled server (passes) and a fake open one (fails). **Not yet run against a live deploy** |
-| Android build + Play internal-track upload | Written; **untested** (Capacitor 8.5.3, `r0adkll/upload-google-play@v1`) *(verify)* |
+| Android build + Play internal-track upload | Written; **untested** (Capacitor 8.5.3, `r0adkll/upload-google-play` pinned to v1.1.5's commit) *(verify)* |
 | Protocol version handshake (old cached clients vs a new server) | **Not built** |
 | Usage meter across Workers | Built as one shared object; tallies are per isolate and approximate |
 
@@ -235,13 +235,14 @@ A new app is normally one day of J's sprint. **The day ships when its demo page 
 ### 10. Operations
 
 - **Logs:** `wrangler tail app-<id>`.
-- **Rollback:** `wrangler rollback`; CI does it on a failed smoke test. A rollback to a version older than your last `ALLOWED_EMAILS` change brings back that version's list (wrangler 4.162.0 asks first, but `-y` skips the question), so set the list again after a manual rollback.
+- **Rollback:** `wrangler rollback`; CI does it on a failed smoke test. A rollback to a version older than your last `ALLOWED_EMAILS` change brings back that version's list (wrangler 4.162.0's source asks first, but `-y` skips the question), so set the list again after a manual rollback.
 - **Daily limit reached:** new runs and rooms are refused with `over_budget`, and apps show it plainly.
 - **Remove a friend at once:**
-    1. Set the new list (comma-separated, without them) on the platform Worker and every friends app: `npx wrangler secret put ALLOWED_EMAILS --name app-platform`, then `--name app-<id>` for each app in `apps.json` that isn't an invite app. No commit, sync or redeploy *(verify: takes effect at once)*.
+    1. Set the new list (comma-separated, without them) on the platform Worker and every friends app: `npx wrangler secret put ALLOWED_EMAILS --name app-platform`, then `--name app-<id>` for each solo or turn app (its `app.config.json` `mode`; invite apps don't use the list). No commit, sync or redeploy *(verify: takes effect at once)*.
     2. Remove them from the Access policy too.
 
    Removing them from the policy alone doesn't end a live session.
+- **Moving a Worker deployed before the allowlist became a secret:** sync and deploy it first (that drops the old `ALLOWED_EMAILS` var), then `secret put`. Turn on `requireEmailAllowlist` so a skipped step fails closed.
 - **First deploy order:** the platform Worker first, since apps bind to its classes. Then the apps. With `requireEmailAllowlist` on, each new Worker denies everyone until you run `npx wrangler secret put ALLOWED_EMAILS --name <worker>` once after its first deploy.
 
 ### 11. Security rules (non-negotiable)
