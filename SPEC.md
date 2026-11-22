@@ -56,7 +56,7 @@ scripts/create-app.mjs    new app from the template
 scripts/sync-platform.mjs refresh an app's platform/ copy
 scripts/platform-config.mjs  regenerate the platform Worker's wrangler config
 scripts/lib.mjs           shared by the three scripts (renders every wrangler.toml)
-platform.config.json      account-wide settings: hostname, zone, account id, Access team and AUD, allowed emails
+platform.config.json      account-wide settings: hostname, zone, account id, Access team and AUD, whether the email allowlist is required
 apps.json                 the apps the index page lists
 skills/ship-app/          the skill J uploads to claude.ai
 SPEC.md                   this file (copied into every app as platform/SPEC.md)
@@ -82,7 +82,7 @@ Apps depend on `@app-builder/host` and `@app-builder/client-sdk` through `file:p
 
 ### 3. Settings are config
 
-- **`platform.config.json`** holds what every app shares. None of it is secret: the Access team name and AUD tag appear in every login token. `allowedEmails` is the immediate-revocation list (see Operations).
+- **`platform.config.json`** holds what every app shares. None of it is secret: the Access team name and AUD tag appear in every login token. It never holds real people's emails, because this repo and every app repo may be public. The immediate-revocation list is the `ALLOWED_EMAILS` Wrangler secret on each Worker (see Operations); `requireEmailAllowlist: true` makes a Worker without that secret deny everyone.
 - **`app.config.json`** holds one app's settings. `host` overrides any `HostConfig` value for that app's Worker (for example, `emptyRoomTtlMs`: 5 minutes by default, 7 days for turn apps so a game survives overnight).
 - **Rules** live in typed config objects in `src/app.ts` with documented defaults. No magic numbers in logic.
 
@@ -105,7 +105,7 @@ The platform Worker owns `/`, `/index.html` and `/api/platform/*`. More specific
 - Every request, static files included (`run_worker_first = true`), needs a `Cf-Access-Jwt-Assertion` token.
 - It must be RS256-signed by a current team key, matched by `kid`. Keys are cached for an hour; an unknown `kid` refetches at most once a minute.
 - It must carry the right `aud` and `iss`, valid `exp`/`iat`/`nbf`, and an email.
-- If `allowedEmails` is non-empty, the email must be on it.
+- If the `ALLOWED_EMAILS` secret is non-empty, the email must be on it. If `requireEmailAllowlist` is on and the secret is empty or unset, everyone is denied.
 - Missing config denies everything.
 - The Worker sets `X-Verified-Player` itself; Durable Objects have no public route.
 - Every response carries the CSP `'self'`, `nosniff`, `no-referrer` and `frame-ancestors 'none'`.
@@ -235,15 +235,14 @@ A new app is normally one day of J's sprint. **The day ships when its demo page 
 ### 10. Operations
 
 - **Logs:** `wrangler tail app-<id>`.
-- **Rollback:** `wrangler rollback`; CI does it on a failed smoke test.
+- **Rollback:** `wrangler rollback`; CI does it on a failed smoke test. A rollback to a version older than your last `ALLOWED_EMAILS` change brings back that version's list (wrangler 4.162.0 asks first, but `-y` skips the question), so set the list again after a manual rollback.
 - **Daily limit reached:** new runs and rooms are refused with `over_budget`, and apps show it plainly.
 - **Remove a friend at once:**
-    1. Remove their email from `platform.config.json` `allowedEmails`.
-    2. Push app_builder, then `sync` and push each app.
-    3. Remove them from the Access policy too.
+    1. Set the new list (comma-separated, without them) on the platform Worker and every friends app: `npx wrangler secret put ALLOWED_EMAILS --name app-platform`, then `--name app-<id>` for each app in `apps.json` that isn't an invite app. No commit, sync or redeploy *(verify: takes effect at once)*.
+    2. Remove them from the Access policy too.
 
    Removing them from the policy alone doesn't end a live session.
-- **First deploy order:** the platform Worker first, since apps bind to its classes. Then the apps.
+- **First deploy order:** the platform Worker first, since apps bind to its classes. Then the apps. With `requireEmailAllowlist` on, each new Worker denies everyone until you run `npx wrangler secret put ALLOWED_EMAILS --name <worker>` once after its first deploy.
 
 ### 11. Security rules (non-negotiable)
 

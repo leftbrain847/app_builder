@@ -13,7 +13,7 @@ import { deny, json, secured } from './headers';
 export { UsageMeter } from './usage';
 export { Scores } from './solo';
 
-export interface PlatformEnv extends Pick<Env, 'TEAM' | 'ACCESS_AUD' | 'ALLOWED_EMAILS' | 'USAGE' | 'SCORES'> {
+export interface PlatformEnv extends Pick<Env, 'TEAM' | 'ACCESS_AUD' | 'ALLOWED_EMAILS' | 'EMAIL_ALLOWLIST' | 'USAGE' | 'SCORES'> {
   /** JSON list of `{ "id": "settlers", "title": "Settlers" }`, kept in `wrangler.toml` `[vars]`. */
   APPS?: string;
 }

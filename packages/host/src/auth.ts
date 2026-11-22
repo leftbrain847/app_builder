@@ -4,6 +4,7 @@
  * the team's current keys, carry our application's AUD tag, come from our
  * team's issuer, be within its time window, and name an email (optionally on
  * an allowlist). Anything else is `null`, and the caller answers 403.
+ * The allowlist is a Worker secret, never config: it holds real people's emails.
  * Hand-rolled on WebCrypto: no JWT library.
  */
 
@@ -12,8 +13,10 @@ export interface AccessEnv {
   TEAM?: string;
   /** The Access application's AUD tag. */
   ACCESS_AUD?: string;
-  /** Optional second gate: comma-separated emails. */
+  /** Optional second gate: comma-separated emails. A Wrangler secret (`wrangler secret put ALLOWED_EMAILS`), never a [vars] entry. */
   ALLOWED_EMAILS?: string;
+  /** `"required"`: an empty or missing ALLOWED_EMAILS denies everyone, so a Worker whose secret was never set fails closed. */
+  EMAIL_ALLOWLIST?: string;
 }
 
 export interface AuthDeps {
@@ -123,6 +126,7 @@ export async function verifyAccess(request: Request, env: AccessEnv, deps: AuthD
     const email = payload.email.toLowerCase();
 
     const allowed = (env.ALLOWED_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+    if (allowed.length === 0 && env.EMAIL_ALLOWLIST === 'required') return null;
     if (allowed.length > 0 && !allowed.includes(email)) return null;
     return { email };
   } catch {

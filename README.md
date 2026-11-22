@@ -30,7 +30,7 @@ Nothing is copied by hand, and app repos never reach back here to build:
 
 1. **Cloudflare:** an account with a passkey. Buy the domain. In Zero Trust (free plan), create one self-hosted Access application on `apps.<domain>` allowing your friends' emails with one-time-code login.
 2. **Only if you make invite apps:** in Cloudflare (Security → WAF → Rate limiting rules, one rule on the free plan), limit requests to your `friendsHost` (e.g. `play.<domain>`), say 60 per 10 seconds per IP, action Block. It stops a stranger from spending the shared free quota.
-3. **Fill in `platform.config.json`:** hostname, the no-login hostname for invite apps (`friendsHost`, e.g. `play.<domain>`; keep it OUT of Access), zone, account id, Access team name and AUD tag, allowed emails. Or tell a session the values.
+3. **Fill in `platform.config.json`:** hostname, the no-login hostname for invite apps (`friendsHost`, e.g. `play.<domain>`; keep it OUT of Access), zone, account id, Access team name and AUD tag. Or tell a session the values. Never friends' emails: this repo may be public. If you want the second email check, set `requireEmailAllowlist` to `true` and, after each Worker's first deploy, run `npx wrangler secret put ALLOWED_EMAILS --name <worker>` (see SPEC.md, Operations).
 4. **Cloudflare API token:** create one for Workers deploys and add it as the `CLOUDFLARE_API_TOKEN` secret here and in each app repo.
 5. **Upload the skill:** `skills/ship-app.zip` goes into your skills on claude.ai.
 6. **Google Play, when ready:** the developer account ($25), a service account for uploads and an upload key. Their secrets go in each Play app's repo.

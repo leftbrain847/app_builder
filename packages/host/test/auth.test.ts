@@ -71,6 +71,17 @@ describe('Access JWT verification (fail closed)', () => {
     expect(await verifyAccess(withToken(url, await s.sign(goodClaims('eve@example.com'))), allow, deps)).toBeNull();
   });
 
+  it('fails closed when the allowlist is required but its secret was never set', async () => {
+    const s = await makeSigner();
+    const deps = authDeps(s);
+    const token = await s.sign(goodClaims());
+    for (const missing of [{}, { ALLOWED_EMAILS: '' }, { ALLOWED_EMAILS: ' , ' }]) {
+      expect(await verifyAccess(withToken(url, token), { ...env, EMAIL_ALLOWLIST: 'required', ...missing }, deps)).toBeNull();
+    }
+    expect(await verifyAccess(withToken(url, token), { ...env, EMAIL_ALLOWLIST: 'required', ALLOWED_EMAILS: 'pat@example.com' }, deps)).toEqual({ email: 'pat@example.com' });
+    expect(await verifyAccess(withToken(url, token), { ...env, EMAIL_ALLOWLIST: 'off' }, deps)).toEqual({ email: 'pat@example.com' });
+  });
+
   it('caches keys, and an unknown key id refetches at most once per minute', async () => {
     const s = await makeSigner();
     const deps = authDeps(s);
