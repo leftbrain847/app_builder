@@ -13,7 +13,7 @@ export interface AccessEnv {
   TEAM?: string;
   /** The Access application's AUD tag. */
   ACCESS_AUD?: string;
-  /** Optional second gate: comma-separated emails. A Wrangler secret (`wrangler secret put ALLOWED_EMAILS`), never a [vars] entry. */
+  /** Optional second gate: comma-separated emails. A Worker secret that CI uploads from the ALLOWED_EMAILS GitHub secret, never a [vars] entry. */
   ALLOWED_EMAILS?: string;
   /** `"required"`: an empty or missing ALLOWED_EMAILS denies everyone, so a Worker whose secret was never set fails closed. */
   EMAIL_ALLOWLIST?: string;

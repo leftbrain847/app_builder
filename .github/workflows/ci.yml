@@ -10,6 +10,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Run workflow (Actions tab) redeploys the platform Worker, e.g. after changing the ALLOWED_EMAILS secret.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -37,7 +39,7 @@ jobs:
 
   deploy-platform:
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,8 +56,18 @@ jobs:
         if: steps.gate.outputs.ready == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Friends' emails, comma-separated: a GitHub secret, never in the repo. Uploaded as the Worker secret of the same name.
+          ALLOWED_EMAILS: ${{ secrets.ALLOWED_EMAILS }}
         run: |
           npm ci
           node scripts/platform-config.mjs
           export CLOUDFLARE_ACCOUNT_ID=$(node -p "require('./platform.config.json').cloudflareAccountId")
-          cd packages/host && npx wrangler deploy -c wrangler.platform.toml
+          secrets=()
+          if [ -n "$ALLOWED_EMAILS" ]; then
+            node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({ ALLOWED_EMAILS: process.env.ALLOWED_EMAILS }))" "$RUNNER_TEMP/secrets.json"
+            secrets=(--secrets-file "$RUNNER_TEMP/secrets.json")
+          elif [ "$(node -p "require('./platform.config.json').requireEmailAllowlist === true")" = true ]; then
+            echo "::error::requireEmailAllowlist is on but the ALLOWED_EMAILS secret is not set on this repo"; exit 1
+          fi
+          cd packages/host && npx wrangler deploy -c wrangler.platform.toml "${secrets[@]}"
+          rm -f "$RUNNER_TEMP/secrets.json"

@@ -29,7 +29,7 @@ export function platformConfig() {
     if (p.friendsHost === p.appsHost) throw new Error('platform.config.json: friendsHost must differ from appsHost');
   }
   // Real people's emails never go in this (public) repo: the allowlist is a Wrangler secret on each Worker.
-  if (p.allowedEmails !== undefined && !(Array.isArray(p.allowedEmails) && p.allowedEmails.length === 0)) throw new Error('platform.config.json: remove allowedEmails. The list is a Worker secret now (SPEC.md, Operations): set requireEmailAllowlist and run wrangler secret put ALLOWED_EMAILS on each Worker');
+  if (p.allowedEmails !== undefined && !(Array.isArray(p.allowedEmails) && p.allowedEmails.length === 0)) throw new Error('platform.config.json: remove allowedEmails. The list is a Worker secret now (SPEC.md, Operations): put the list in the ALLOWED_EMAILS GitHub secret instead');
   if (p.requireEmailAllowlist !== undefined && typeof p.requireEmailAllowlist !== 'boolean') throw new Error('platform.config.json: requireEmailAllowlist must be true or false');
   return p;
 }
@@ -72,7 +72,7 @@ routes = [
 ]
 
 # Not secrets: the team name and AUD tag appear in every login token.
-# The email allowlist is a secret, never here: wrangler secret put ALLOWED_EMAILS (see SPEC.md, Operations).
+# The email allowlist is a secret, never here: CI uploads the ALLOWED_EMAILS GitHub secret (see SPEC.md, Operations).
 [vars]
 TEAM = ${tomlString(p.accessTeam)}
 ACCESS_AUD = ${tomlString(p.accessAud)}
@@ -189,7 +189,7 @@ ${route('/index.html')}
 ${route('/api/platform/*')}
 ]
 
-# The email allowlist is a secret, never here: wrangler secret put ALLOWED_EMAILS (see SPEC.md, Operations).
+# The email allowlist is a secret, never here: CI uploads the ALLOWED_EMAILS GitHub secret (see SPEC.md, Operations).
 [vars]
 TEAM = ${tomlString(p.accessTeam)}
 ACCESS_AUD = ${tomlString(p.accessAud)}

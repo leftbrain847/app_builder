@@ -2,6 +2,7 @@
 #
 # Repo secrets this needs (Settings → Secrets and variables → Actions):
 #   CLOUDFLARE_API_TOKEN          friends deploys (Workers Scripts: Edit on your account)
+#   ALLOWED_EMAILS                optional: friends' emails, comma-separated (solo and turn apps; never in the repo)
 #   PLAY_SERVICE_ACCOUNT_JSON     Play uploads (only if targets.play.enabled)
 #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD   (Play only)
 name: app
@@ -11,6 +12,8 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
+  # Run workflow (Actions tab) redeploys, e.g. after changing the ALLOWED_EMAILS secret.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -36,7 +39,7 @@ jobs:
 
   deploy-friends:
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,9 +59,21 @@ jobs:
         if: steps.gate.outputs.ready == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Uploaded as the Worker secret of the same name; invite apps don't use it.
+          ALLOWED_EMAILS: ${{ secrets.ALLOWED_EMAILS }}
         run: |
           export CLOUDFLARE_ACCOUNT_ID=$(node -p "require('./platform/platform.config.json').cloudflareAccountId")
-          npm run deploy
+          secrets=()
+          if [ "$(node -p "require('./app.config.json').mode")" != invite ]; then
+            if [ -n "$ALLOWED_EMAILS" ]; then
+              node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({ ALLOWED_EMAILS: process.env.ALLOWED_EMAILS }))" "$RUNNER_TEMP/secrets.json"
+              secrets=(-- --secrets-file "$RUNNER_TEMP/secrets.json")
+            elif [ "$(node -p "require('./platform/platform.config.json').requireEmailAllowlist === true")" = true ]; then
+              echo "::error::requireEmailAllowlist is on but the ALLOWED_EMAILS secret is not set on this repo"; exit 1
+            fi
+          fi
+          npm run deploy "${secrets[@]}"
+          rm -f "$RUNNER_TEMP/secrets.json"
       - name: Smoke test (the app must sit behind the login wall)
         # Runs even if Deploy failed partway: wrangler may have published before erroring.
         if: ${{ !cancelled() && steps.gate.outputs.ready == 'true' && steps.deploy.outcome != 'skipped' }}

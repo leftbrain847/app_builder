@@ -82,7 +82,7 @@ Apps depend on `@app-builder/host` and `@app-builder/client-sdk` through `file:p
 
 ### 3. Settings are config
 
-- **`platform.config.json`** holds what every app shares. None of it is secret: the Access team name and AUD tag appear in every login token. It never holds real people's emails, because this repo and every app repo may be public. The immediate-revocation list is the `ALLOWED_EMAILS` Wrangler secret on each Worker (see Operations); `requireEmailAllowlist: true` makes a Worker without that secret deny everyone.
+- **`platform.config.json`** holds what every app shares. None of it is secret: the Access team name and AUD tag appear in every login token. It never holds real people's emails, because this repo and every app repo may be public. The immediate-revocation list is the `ALLOWED_EMAILS` GitHub secret on this repo and each solo or turn app repo; the deploy job uploads it as the Worker secret of the same name (see Operations). With `requireEmailAllowlist: true`, a deploy without that secret fails and a Worker without it denies everyone.
 - **`app.config.json`** holds one app's settings. `host` overrides any `HostConfig` value for that app's Worker (for example, `emptyRoomTtlMs`: 5 minutes by default, 7 days for turn apps so a game survives overnight).
 - **Rules** live in typed config objects in `src/app.ts` with documented defaults. No magic numbers in logic.
 
@@ -235,15 +235,16 @@ A new app is normally one day of J's sprint. **The day ships when its demo page 
 ### 10. Operations
 
 - **Logs:** `wrangler tail app-<id>`.
-- **Rollback:** `wrangler rollback`; CI does it on a failed smoke test. A rollback to a version older than your last `ALLOWED_EMAILS` change brings back that version's list (wrangler 4.162.0's source asks first, but `-y` skips the question), so set the list again after a manual rollback.
+- **Rollback:** `wrangler rollback`; CI does it on a failed smoke test. A rollback to a version older than your last `ALLOWED_EMAILS` change brings back that version's list (wrangler 4.162.0's source asks first, but `-y` skips the question), so re-run the deploy workflow after a manual rollback. Emptying the GitHub secret doesn't clear the Worker's list (uploads only add); turn off the check with `requireEmailAllowlist: false` plus `wrangler secret delete ALLOWED_EMAILS`.
 - **Daily limit reached:** new runs and rooms are refused with `over_budget`, and apps show it plainly.
 - **Remove a friend at once:**
-    1. Set the new list (comma-separated, without them) on the platform Worker and every friends app: `npx wrangler secret put ALLOWED_EMAILS --name app-platform`, then `--name app-<id>` for each solo or turn app (its `app.config.json` `mode`; invite apps don't use the list). No commit, sync or redeploy *(verify: takes effect at once)*.
-    2. Remove them from the Access policy too.
+    1. Update the `ALLOWED_EMAILS` GitHub secret (comma-separated, without them) on app_builder and on each solo or turn app repo (its `app.config.json` `mode`; invite apps don't use the list).
+    2. In each of those repos, Actions → the `ci` or `app` workflow → Run workflow on `main`. The deploy uploads the new list *(verify live)*.
+    3. Remove them from the Access policy too.
 
    Removing them from the policy alone doesn't end a live session.
-- **Moving a Worker deployed before the allowlist became a secret:** sync and deploy it first (that drops the old `ALLOWED_EMAILS` var), then `secret put`. Turn on `requireEmailAllowlist` so a skipped step fails closed.
-- **First deploy order:** the platform Worker first, since apps bind to its classes. Then the apps. With `requireEmailAllowlist` on, each new Worker denies everyone until you run `npx wrangler secret put ALLOWED_EMAILS --name <worker>` once after its first deploy.
+- **Moving a Worker deployed before the allowlist became a secret:** add the GitHub secret, then sync and deploy (the new config drops the old `ALLOWED_EMAILS` var and the deploy uploads the secret). Turn on `requireEmailAllowlist` so a missing secret fails the deploy.
+- **First deploy order:** the platform Worker first, since apps bind to its classes. Then the apps. With `requireEmailAllowlist` on, add the `ALLOWED_EMAILS` secret to a new app repo before its first deploy, or the deploy fails.
 
 ### 11. Security rules (non-negotiable)
 
