@@ -39,6 +39,7 @@ Read all of this before changing the platform or an app's platform-facing parts.
 | Template: solo, turn and invite samples, tests, builds | Built; CI generates all three and runs their checks |
 | Sprint demo (`npm run build:demo`, `npm run snapshot`): the app as one self-contained page, no server | Built for solo and invite apps; CI builds both. Turn apps have none (rooms need Access) |
 | `create-app`, `sync`, `platform-config` scripts | Built; exercised by CI |
+| Email allowlist: `ALLOWED_EMAILS` GitHub secret uploaded by each deploy (`--secrets-file`) | Written; deploy logic checked locally and `--secrets-file` accepted by a dry run. **Not yet tested live** *(verify)* |
 | App CI: test, deploy, smoke, auto-rollback | Written. The smoke test is checked locally against a fake walled server (passes) and a fake open one (fails). **Not yet run against a live deploy** |
 | Android build + Play internal-track upload | Written; **untested** (Capacitor 8.5.3, `r0adkll/upload-google-play` pinned to v1.1.5's commit) *(verify)* |
 | Protocol version handshake (old cached clients vs a new server) | **Not built** |
@@ -220,7 +221,7 @@ A new app is normally one day of J's sprint. **The day ships when its demo page 
 6. **Publish the day's artifact.** Publish `dist/demo/page.html` as a Claude artifact. Its title is already `YYYY-MM-DD - <Title>`, dated in `app.config.json` → `sprint.timeZone`. Republish the same artifact for fixes during the day; once the day is over, it's a frozen record.
 7. **Snapshot and PRs.** Run `npm run snapshot` and commit `snapshots/YYYY-MM-DD - <Title>.html` with the app, then open the app's PR. In a separate app_builder PR, add `{ "id": "<id>", "title": "<Title>" }` to `apps.json`. No index edit is needed: its nightly refresh finds the snapshot on the app's default branch.
 8. **Report.** Give the artifact link, the PRs J has to merge, and the public sprint site (`https://<owner>.github.io/<index.yml config.site.repo>/`). After J merges, the index's nightly refresh (1:47 AM ET) lists the day. It publishes the day on the public site only if the page carries the `sprint-public` tag (`sprint.public` in `app.config.json`) and passes UAT and the secret scan. To publish sooner, J presses Run workflow on index's refresh-index.
-9. **Later: the live friends link.** J adds the `CLOUDFLARE_API_TOKEN` secret to the app repo (invite apps also need `wrangler secret put HOST_KEY`), and the next push to `main` deploys and smoke-tests. For Play, tag `v0.1.0`; CI uploads to the internal track, and J fills in the listing and runs the closed test.
+9. **Later: the live friends link.** J adds the `CLOUDFLARE_API_TOKEN` secret to the app repo, and for solo and turn apps the `ALLOWED_EMAILS` secret if `requireEmailAllowlist` is on (invite apps also need `wrangler secret put HOST_KEY`), and the next push to `main` deploys and smoke-tests. For Play, tag `v0.1.0`; CI uploads to the internal track, and J fills in the listing and runs the closed test.
 
 **Shipped, sprint day:** the artifact is published, the app PR holds the snapshot, typecheck, tests, build and `build:demo` pass, it was play-tested at phone width, and `demo/clip.json` shows the core function.
 **Shipped, friends:** a deployed URL, a green smoke test, README budget notes, and at least one rules test.
@@ -235,11 +236,11 @@ A new app is normally one day of J's sprint. **The day ships when its demo page 
 ### 10. Operations
 
 - **Logs:** `wrangler tail app-<id>`.
-- **Rollback:** `wrangler rollback`; CI does it on a failed smoke test. A rollback to a version older than your last `ALLOWED_EMAILS` change brings back that version's list (wrangler 4.162.0's source asks first, but `-y` skips the question), so re-run the deploy workflow after a manual rollback. Emptying the GitHub secret doesn't clear the Worker's list (uploads only add); turn off the check with `requireEmailAllowlist: false` plus `wrangler secret delete ALLOWED_EMAILS`.
+- **Rollback:** `wrangler rollback`; CI does it on a failed smoke test. A rollback to a version older than your last `ALLOWED_EMAILS` change brings back that version's list (wrangler 4.162.0's source asks first, but `-y` skips the question), so re-run the deploy workflow after a manual rollback. Emptying the GitHub secret doesn't clear the Worker's list (uploads only add); to turn the check off, set `requireEmailAllowlist: false` and delete the `ALLOWED_EMAILS` secret from each Worker's settings in the Cloudflare dashboard.
 - **Daily limit reached:** new runs and rooms are refused with `over_budget`, and apps show it plainly.
 - **Remove a friend at once:**
     1. Update the `ALLOWED_EMAILS` GitHub secret (comma-separated, without them) on app_builder and on each solo or turn app repo (its `app.config.json` `mode`; invite apps don't use the list).
-    2. In each of those repos, Actions → the `ci` or `app` workflow → Run workflow on `main`. The deploy uploads the new list *(verify live)*.
+    2. In each of those repos, Actions → the `ci` or `app` workflow → Run workflow on `main`. The deploy uploads the new list *(verify live)*. If an app's run fails and rolls back, the old list is live again: fix it and run again.
     3. Remove them from the Access policy too.
 
    Removing them from the policy alone doesn't end a live session.

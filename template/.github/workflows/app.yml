@@ -66,6 +66,7 @@ jobs:
           secrets=()
           if [ "$(node -p "require('./app.config.json').mode")" != invite ]; then
             if [ -n "$ALLOWED_EMAILS" ]; then
+              trap 'rm -f "$RUNNER_TEMP/secrets.json"' EXIT
               node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({ ALLOWED_EMAILS: process.env.ALLOWED_EMAILS }))" "$RUNNER_TEMP/secrets.json"
               secrets=(-- --secrets-file "$RUNNER_TEMP/secrets.json")
             elif [ "$(node -p "require('./platform/platform.config.json').requireEmailAllowlist === true")" = true ]; then
@@ -73,7 +74,6 @@ jobs:
             fi
           fi
           npm run deploy "${secrets[@]}"
-          rm -f "$RUNNER_TEMP/secrets.json"
       - name: Smoke test (the app must sit behind the login wall)
         # Runs even if Deploy failed partway: wrangler may have published before erroring.
         if: ${{ !cancelled() && steps.gate.outputs.ready == 'true' && steps.deploy.outcome != 'skipped' }}
@@ -88,6 +88,7 @@ jobs:
           # On an app's first deploy there is no earlier version to roll back to, so take the Worker
           # down instead: an app that might be outside the login wall must not stay live.
           npx wrangler rollback -y -m "smoke test failed for ${GITHUB_SHA}" || npx wrangler delete --force
+          echo "::error::Rolled back: the previous version, with its ALLOWED_EMAILS list, is live again. If you just removed someone, fix the failure and run this workflow again."
 
   # UNTESTED: written against Capacitor 8.5.3 and Play's internal track; verify on the first real app.
   android:

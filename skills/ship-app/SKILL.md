@@ -27,7 +27,7 @@ The pipeline's real instructions live in the `leftbrain847/app_builder` repo, no
 4. **Report briefly.**
     - Lead with the artifact link (or the live URL `https://<host>/<id>/`).
     - List the PRs J has to merge, in order, and when the public sprint site will show the day.
-    - List what J still has to do by hand, such as adding the `CLOUDFLARE_API_TOKEN` repo secret.
+    - List what J still has to do by hand, such as adding the `CLOUDFLARE_API_TOKEN` repo secret (and `ALLOWED_EMAILS` for solo and turn apps if `requireEmailAllowlist` is on).
     - Flag any *(verify)* item from the Status table that this work depended on.
 
 Follow each repo's "Working rules for agents": PRs only, never merge, a risk tier and a 60-second check on each PR. Never edit an app's `platform/` folder by hand, never weaken SPEC section 11's security rules, and never promote a Play release past the internal track.
