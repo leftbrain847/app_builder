@@ -247,6 +247,7 @@ export function syncInto(appDir) {
     writeJson(join(dest, pkg, 'package.json'), manifest);
   }
   cpSync(join(ROOT, 'SPEC.md'), join(dest, 'SPEC.md'));
+  cpSync(join(ROOT, 'depth.config.json'), join(dest, 'depth.config.json'));
   writeJson(join(dest, 'platform.config.json'), p);
   writeJson(join(dest, 'VERSION.json'), platformVersion());
   writeFileSync(
@@ -255,7 +256,7 @@ export function syncInto(appDir) {
   );
   writeFileSync(join(appDir, 'wrangler.toml'), renderAppWrangler(app, p));
   const playId = `${p.playPackagePrefix}.${app.id.replace(/-/g, '_')}`;
-  for (const rel of ['.github/workflows/app.yml', 'scripts/smoke.mjs', 'scripts/check-play-bundle.mjs']) {
+  for (const rel of ['.github/workflows/app.yml', 'scripts/smoke.mjs', 'scripts/check-play-bundle.mjs', 'scripts/depth-check.mjs']) {
     mkdirSync(dirname(join(appDir, rel)), { recursive: true });
     const text = readFileSync(join(ROOT, 'template', rel), 'utf8').split('__PLAY_APP_ID__').join(playId);
     writeFileSync(join(appDir, rel), text);

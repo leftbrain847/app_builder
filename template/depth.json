@@ -1,0 +1,13 @@
+{
+  "$comment": "This app's depth spec, scored 0-3 per pillar against platform/depth.config.json. Fill in a plan for every pillar, even ones day one doesn't build. `npm run depth` prints the score and any warnings.",
+  "pillars": {
+    "mastery":     { "score": 0, "plan": "" },
+    "open_loop":   { "score": 0, "plan": "" },
+    "progression": { "score": 0, "plan": "" },
+    "ownership":   { "score": 0, "plan": "" },
+    "consequence": { "score": 0, "plan": "" },
+    "runway":      { "score": 0, "plan": "" },
+    "habit":       { "score": 0, "plan": "" },
+    "stories":     { "score": 0, "plan": "" }
+  }
+}

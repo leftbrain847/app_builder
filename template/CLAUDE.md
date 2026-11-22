@@ -29,6 +29,7 @@ An app built on app_builder. The platform rules live in `platform/SPEC.md`: read
 | `src/client/` | the UI (`main.ts`, `ui.ts`, `styles.css`) | you |
 | `test/` | vitest; every rule gets a test | you |
 | `app.config.json` | id, title, mode, targets, host overrides, sprint settings | you |
+| `depth.json` | the depth spec: a 0–3 score and a plan per pillar; `npm run depth` scores it (SPEC section 8, step 3) | you |
 | `project.yml` | theme, tags, what, next, active: read nightly by the index | you |
 | `demo/`, `src/client/demo.ts` | the sprint demo: the app as one page that runs with no server | you |
 | `demo/clip.json` | the homepage clip script: 4–9 s showing the core function (SPEC section 8, step 5) | you |

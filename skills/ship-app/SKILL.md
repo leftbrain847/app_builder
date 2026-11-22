@@ -21,13 +21,14 @@ The pipeline's real instructions live in the `leftbrain847/app_builder` repo, no
     - **Update an app's platform:** follow SPEC section 9. Compare `platform/VERSION.json` with app_builder's current commit and say what changed before syncing.
     - **Release to Play:** follow SPEC sections 5 and 7. Remind J of the one-time manual steps still open.
 3. **Before calling anything shipped,** meet the matching definition at the end of SPEC section 8:
-    - **sprint day:** artifact published, snapshot in the app PR, `build:demo` green, and play-tested at phone width like a person, and `demo/clip.json` scripted to show the core function in its first 1–2 seconds
+    - **sprint day:** artifact published, snapshot in the app PR, `build:demo` green, and play-tested at phone width like a person, and `demo/clip.json` scripted to show the core function in its first 1–2 seconds, and `depth.json` filled in (a score and a plan for every pillar) with `npm run depth` run
     - **friends:** typecheck, tests and build pass, and the smoke test is green after CI deploys
     - **Play:** `npm run build:play` passes too
 4. **Report briefly.**
     - Lead with the artifact link (or the live URL `https://<host>/<id>/`).
     - List the PRs J has to merge, in order, and when the public sprint site will show the day.
     - List what J still has to do by hand, such as adding the `CLOUDFLARE_API_TOKEN` repo secret (and `ALLOWED_EMAILS` for solo and turn apps if `requireEmailAllowlist` is on).
+    - Include the depth table from `npm run depth`. If it warns "hypercasual", say so in the first lines: it's a warning, not a block.
     - Flag any *(verify)* item from the Status table that this work depended on.
 
 Follow each repo's "Working rules for agents": PRs only, never merge, a risk tier and a 60-second check on each PR. Never edit an app's `platform/` folder by hand, never weaken SPEC section 11's security rules, and never promote a Play release past the internal track.
