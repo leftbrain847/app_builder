@@ -8,6 +8,7 @@
     "consequence": { "score": 0, "plan": "" },
     "runway":      { "score": 0, "plan": "" },
     "habit":       { "score": 0, "plan": "" },
-    "stories":     { "score": 0, "plan": "" }
+    "stories":     { "score": 0, "plan": "" },
+    "social":      { "score": 0, "plan": "" }
   }
 }

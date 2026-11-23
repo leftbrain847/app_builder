@@ -38,7 +38,7 @@ test('a zero on a reject pillar is hypercasual even with a high total', () => {
 
 test('a deep spec passes, and a zero on habit is allowed', () => {
   const r = scoreDepth(spec({ habit: 0 }), config);
-  assert.equal(r.total, 14);
+  assert.equal(r.total, (Object.keys(config.pillars).length - 1) * 2); // every pillar at 2 except habit
   assert.equal(r.pass, true);
 });
 
@@ -58,4 +58,10 @@ test('a missing spec is flagged, not a crash', () => {
   const r = scoreDepth(null, config);
   assert.equal(r.pass, false);
   assert.match(report(r, config).join('\n'), /WARNING/);
+});
+
+test('a 0 on social is allowed: solo apps are not penalized', () => {
+  const r = scoreDepth(spec({ social: 0, habit: 0 }), config);
+  assert.deepEqual(r.otherZeros, []);
+  assert.equal(r.hypercasual, false);
 });
