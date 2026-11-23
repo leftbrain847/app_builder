@@ -10,9 +10,10 @@
     "consequence": { "weight": 1, "test": "Choices with delayed, visible results: a draft, a build order." },
     "runway":      { "weight": 1, "test": "30+ days of content, plus a generator for more." },
     "habit":       { "weight": 1, "test": "A daily reason to return, without dark patterns." },
-    "stories":     { "weight": 1, "test": "The game produces narratives worth a video." }
+    "stories":     { "weight": 1, "test": "The game produces narratives worth a video." },
+    "social":      { "weight": 1, "test": "Other people make it better: co-op, rivals, trading, sharing. Optional, never forced." }
   },
   "reject_if_zero": ["progression", "ownership", "runway"],
-  "allow_zero": ["habit"],
+  "allow_zero": ["habit", "social"],
   "ship_min_total": 14
 }
