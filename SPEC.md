@@ -11,7 +11,7 @@ One pipeline builds every app. Each app ships to up to two places from one codeb
 | **Google Play** | Anyone | Android app, bundled, offline | None | $25 once for the Play account |
 
 - **Play v1 is single-player only.** That is the current build, not a permanent rule (J, Nov 2026). Online play for strangers needs accounts, moderation and paid hosting; it gets designed only when a specific app is about to go live with it.
-- **No App Store.** iPhone friends use the browser link.
+- **App Store is a target (J, Nov 2026), not built yet.** $99/yr covers every app. Build it after the first Play launch proves the pipeline. Until then, iPhone friends use the browser link.
 - **Each app has its own repo and its own Worker,** so one bad deploy can't break the others.
 - **Apps carry a stamped copy of the platform** in `platform/`. `sync` refreshes it, one commit per bump, so a platform change reaches an app only when you say so.
 
@@ -189,7 +189,9 @@ The platform Worker owns `/`, `/index.html` and `/api/platform/*`. More specific
 
 ### 6. iOS
 
-Friends only, via the browser link. A home-screen shortcut keeps its own cookies, so friends log in once more there *(verify on a current iOS device)*. No App Store work unless J asks.
+**Friends:** via the browser link. A home-screen shortcut keeps its own cookies, so friends log in once more there *(verify on a current iOS device)*.
+
+**App Store:** a target as of Nov 2026, **not built**. Sequencing: after the first Play app is live. Known shape, to verify when built: the same Capacitor bundle as Play; iOS builds need Xcode, so they run in CI on macOS runners (J works phone-only) and upload to TestFlight; Apple Developer Program is 99 USD per year for the account *(verify)*. Same offline guards as Play v1. App Review rejects look-alike apps from one developer (guideline 4.3, spam) *(verify)*, so each app must be clearly its own product.
 
 ### 7. CI/CD
 
