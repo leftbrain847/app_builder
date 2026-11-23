@@ -64,6 +64,7 @@ if (mode === 'turn') {
   const pkg = readJson(join(out, 'package.json'));
   delete pkg.scripts['build:demo'];
   delete pkg.scripts.snapshot;
+  delete pkg.scripts.live;
   writeJson(join(out, 'package.json'), pkg);
   const ts = readJson(join(out, 'tsconfig.json'));
   ts.include = ts.include.filter((p) => p !== 'demo');
