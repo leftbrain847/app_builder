@@ -10,7 +10,7 @@ One pipeline builds every app. Each app ships to up to two places from one codeb
 | **Friends, by link** (`invite` apps) | Anyone you send a link to, approved by you | `play.<domain>/<app>/` in the browser | None: an unguessable invite link, and you let each person in | Same as Friends |
 | **Google Play** | Anyone | Android app, bundled, offline | None | $25 once for the Play account |
 
-- **Play v1 is single-player only.** Online play for strangers needs accounts, moderation and paid hosting; parked until an app earns it.
+- **Play v1 is single-player only.** That is the current build, not a permanent rule (J, Nov 2026). Online play for strangers needs accounts, moderation and paid hosting; it gets designed only when a specific app is about to go live with it.
 - **No App Store.** iPhone friends use the browser link.
 - **Each app has its own repo and its own Worker,** so one bad deploy can't break the others.
 - **Apps carry a stamped copy of the platform** in `platform/`. `sync` refreshes it, one commit per bump, so a platform change reaches an app only when you say so.
@@ -164,7 +164,7 @@ The platform Worker owns `/`, `/index.html` and `/api/platform/*`. More specific
 
 ### 5. Google Play target
 
-**v1 scope.** Single-player and fully offline:
+**v1 scope.** Single-player and fully offline. This is v1, not a permanent rule: online Play apps are allowed in principle, and the design (auth into the Worker, accounts, hosting, moderation) waits until a specific app is about to go live with it. Until then the guards below stay on:
 - No login, no network calls, no analytics, no ads, no billing.
 - `create-app` turns Play on only for `solo` apps.
 - `targets.play.multiplayer` must stay `false`.

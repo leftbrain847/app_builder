@@ -6,7 +6,7 @@ The shared platform for J's apps: host library, client SDK, platform Worker, app
 
 - Friends apps: Cloudflare Workers + Durable Objects behind Cloudflare Access, one hostname, one Worker per app at `/<id>/`.
 - Invite apps (no login): the same, but on `friendsHost`, outside Access; the Worker checks the host key, signed room links and invite approval itself.
-- Play apps: single-player, offline, Capacitor-bundled. No TWA, no network.
+- Play apps: Capacitor-bundled, no TWA. Today they are single-player and offline, and the guards below enforce it. J has dropped that as a permanent rule (Nov 2026): online and multiplayer Play apps are allowed, but designing it (accounts, auth, hosting, moderation) is a bridge crossed only when a specific app is about to go live that way. Until then, keep the guards and don't build ahead.
 - Apps vendor the platform into `platform/` via `sync`; no npm registry, no cross-repo access at build time.
 - Settings are config: `platform.config.json` (shared), `app.config.json` (per app), typed rule objects in code.
 
