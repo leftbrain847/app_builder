@@ -17,7 +17,7 @@ The pipeline's real instructions live in the `leftbrain847/app_builder` repo, no
         - Date everything in J's time zone (`app.config.json` → `sprint.timeZone`, America/New_York), never UTC.
         - Pick the mode from the request: `solo` for single-player, `invite` for multiplayer. Ask only if it's genuinely unclear.
         - J creates the empty GitHub repo; you can't. If it isn't attached, ask for its name, attach it with push access, and clone it.
-    - **Change an existing app:** work in its repo, following its CLAUDE.md and `platform/SPEC.md`. A change on the same day republishes that day's artifact and snapshot; never touch an earlier day's.
+    - **Change an existing app:** work in its repo, following its CLAUDE.md and `platform/SPEC.md`. A later change is not a new sprint day: run `npm run live` and commit `live/<Title>.html` (the living version), never a new or edited file in `snapshots/`, unless J says this is a new sprint day. Share it as one living artifact titled with the app's name, republished in place.
     - **Update an app's platform:** follow SPEC section 9. Compare `platform/VERSION.json` with app_builder's current commit and say what changed before syncing.
     - **Release to Play:** follow SPEC sections 5 and 7. Remind J of the one-time manual steps still open.
 3. **Before calling anything shipped,** meet the matching definition at the end of SPEC section 8:
